@@ -86,9 +86,20 @@ def fetch_booking(booking_id):
     if not booking_id:
         return None
     response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}")
-    if response.status_code == 200:
-        return response.json()
-    return None
+    if response.status_code != 200:
+        return None
+
+    booking = response.json()
+    room_id = booking.get("room_id")
+
+    if room_id:
+        room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
+        if room_response.status_code == 200:
+            room = room_response.json()
+            booking["room_number"] = room.get("number")
+            booking["room_building"] = room.get("building")
+
+    return booking
 
 
 def accept_invite(app, id):
