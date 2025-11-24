@@ -60,43 +60,32 @@ def show_my_bookings(app):
 
         button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
         button_row.pack(fill="x", padx=10, pady=(0, 10))
-        ctk.CTkButton(
-            button_row,
-            text="View More",
-            width=100,
-            height=28,
-            fg_color="#0078D7",
-            hover_color="#005A9E",
-            command=lambda id=booking_id: view_event_details(app, id, caller="bookings"),
-        ).pack(side="right", padx=5)
+
+        actions = [
+            ("View More", lambda id=booking_id: view_event_details(app, id, caller="bookings")),
+            ("Invite Users", lambda id=booking_id: invite_users(app, id)),
+            ("Cancel Booking", lambda id=booking_id: cancel_booking(app, id)),
+        ]
         if details.get("public"):
-            ctk.CTkButton(
-                button_row,
-                text="Pending Requests",
-                width=140,
-                height=28,
-                fg_color="#4a6fa5",
-                hover_color="#365781",
-                command=lambda id=booking_id: show_join_requests(app, id),
-            ).pack(side="right", padx=5)
-        ctk.CTkButton(
+            actions.insert(1, ("Pending Requests", lambda id=booking_id: show_join_requests(app, id)))
+
+        actions_var = ctk.StringVar(value="☰ Actions")
+
+        def handle_action(choice: str):
+            for label, fn in actions:
+                if label == choice:
+                    fn()
+                    break
+            actions_var.set("☰ Actions")
+
+        ctk.CTkOptionMenu(
             button_row,
-            text="Cancel Booking",
-            width=120,
-            height=28,
-            fg_color="#cc3333",
-            hover_color="#990000",
-            command=lambda id=booking_id: cancel_booking(app, id),
-        ).pack(side="right", padx=5)
-        ctk.CTkButton(
-            button_row,
-            text="Invite Users",
-            width=120,
-            height=28,
-            fg_color="#6b6b6b",
-            hover_color="#4a4a4a",
-            command=lambda id=booking_id: invite_users(app, id),
-        ).pack(side="right", padx=5)
+            variable=actions_var,
+            values=[label for label, _ in actions],
+            command=handle_action,
+            width=140,
+            anchor="w",
+        ).pack(side="right")
 
 
 def fetch_booking_details(booking_id):
