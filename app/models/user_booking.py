@@ -27,7 +27,7 @@ def create_user_booking(user_id, booking_id, organiser=False):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-                INSERT INTO user_booking (user_id, booking_id, organiser)
+                INSERT OR IGNORE INTO user_booking (user_id, booking_id, organiser)
                 VALUES (?, ?, ?)
             """, (user_id, booking_id, int(organiser)))
 

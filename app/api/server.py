@@ -10,6 +10,7 @@ from app.models.room import *
 from app.models.room_schema import *
 from app.models.invite import *
 from app.models.user_booking import *
+from app.models.join_request import create_join_request, get_join_requests_for_booking, update_join_request_status
 
 app = FastAPI()
 
@@ -52,6 +53,16 @@ class UserBookingInfo(BaseModel):
 class BookingInfo(BaseModel):
     booking_id: str
     organiser: bool
+
+
+class JoinRequestCreate(BaseModel):
+    user_id: str
+
+
+class JoinRequestResponse(BaseModel):
+    request_id: str
+    user: UserRead
+    status: str
 
 
 # -------------------------
@@ -255,7 +266,11 @@ def api_get_invites_by_user(user_id: str):
 # Accept Invite (Invite ID)
 @app.put("/invites/{invite_id}/status/accept", response_model=MessageResponse)
 def api_update_invite_status_accept(invite_id: str, new_status: str = "accepted"):
-    updated = update_invite_status(invite_id, new_status)
+    try:
+        updated = update_invite_status(invite_id, new_status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if updated:
         return MessageResponse(message=f"Invite {invite_id} status updated to {new_status}")
     raise HTTPException(status_code=400, detail="Failed to update invite status")
@@ -264,10 +279,65 @@ def api_update_invite_status_accept(invite_id: str, new_status: str = "accepted"
 # Decline Invite (Invite ID)
 @app.put("/invites/{invite_id}/status/decline", response_model=MessageResponse)
 def api_update_invite_status_decline(invite_id: str, new_status: str = "declined"):
-    updated = update_invite_status(invite_id, new_status)
+    try:
+        updated = update_invite_status(invite_id, new_status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if updated:
         return MessageResponse(message=f"Invite {invite_id} status updated to {new_status}")
     raise HTTPException(status_code=400, detail="Failed to update invite status")
+
+
+# -------------------------
+# Join Request Routes
+# -------------------------
+
+
+@app.post("/bookings/{booking_id}/join-requests", response_model=MessageResponse)
+def api_create_join_request(booking_id: str, data: JoinRequestCreate):
+    try:
+        create_join_request(booking_id, data.user_id)
+        return MessageResponse(message="Join request submitted")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bookings/{booking_id}/join-requests", response_model=List[JoinRequestResponse])
+def api_get_join_requests(booking_id: str):
+    try:
+        requests = get_join_requests_for_booking(booking_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    responses: list[JoinRequestResponse] = []
+    for req in requests:
+        user = UserRead(
+            user_id=req["user_id"],
+            first_name=req.get("first_name", ""),
+            last_name=req.get("last_name", ""),
+            email=req.get("email", ""),
+            admin=req.get("admin", False),
+        )
+        responses.append(JoinRequestResponse(request_id=req["request_id"], user=user, status=req["status"]))
+
+    return responses
+
+
+@app.put("/join-requests/{request_id}/status", response_model=MessageResponse)
+def api_update_join_request_status(request_id: str, new_status: str):
+    try:
+        updated = update_join_request_status(request_id, new_status)
+        if updated:
+            return MessageResponse(message=f"Join request updated to {new_status}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    raise HTTPException(status_code=404, detail="Join request not found")
 
 # -------------------------
 # User-Booking Routes

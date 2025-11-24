@@ -15,19 +15,21 @@ def show_my_bookings(app):
         ctk.CTkLabel(events_frame, text="Please log in to view your bookings.").pack(pady=20)
         return
 
-    bookings_response = requests.get(f"http://127.0.0.1:8000/bookings/user/{app.user_id}")
-    if bookings_response.status_code != 200:
+    memberships_response = requests.get(f"http://127.0.0.1:8000/users/{app.user_id}/bookings")
+    if memberships_response.status_code != 200:
         ctk.CTkLabel(events_frame, text="Unable to load bookings from the server.").pack(pady=20)
         return
 
-    bookings = bookings_response.json()
-    if not bookings:
+    organiser_links = [b for b in memberships_response.json() if b.get("organiser")]
+    if not organiser_links:
         ctk.CTkLabel(events_frame, text="You have no bookings yet.").pack(pady=20)
         return
 
-    for booking in bookings:
+    for booking in organiser_links:
         booking_id = booking.get("booking_id")
         details = fetch_booking_details(booking_id)
+        attendee_count = details.get("attendee_count") or 0
+        room_capacity = details.get("room_capacity")
 
         name = details.get("name")
         description = details.get("description") or ""
@@ -49,6 +51,12 @@ def show_my_bookings(app):
         info_row.pack(fill="x", padx=10, pady=(5, 5))
         ctk.CTkLabel(info_row, text=f"Room: {room_display}", anchor="w").pack(anchor="w")
         ctk.CTkLabel(info_row, text=f"Time: {start_time} - {end_time}", anchor="w").pack(anchor="w")
+        if room_capacity:
+            ctk.CTkLabel(
+                info_row,
+                text=f"Attendees: {attendee_count}/{room_capacity}",
+                anchor="w",
+            ).pack(anchor="w")
 
         button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
         button_row.pack(fill="x", padx=10, pady=(0, 10))
@@ -61,6 +69,16 @@ def show_my_bookings(app):
             hover_color="#005A9E",
             command=lambda id=booking_id: view_event_details(app, id, caller="bookings"),
         ).pack(side="right", padx=5)
+        if details.get("public"):
+            ctk.CTkButton(
+                button_row,
+                text="Pending Requests",
+                width=140,
+                height=28,
+                fg_color="#4a6fa5",
+                hover_color="#365781",
+                command=lambda id=booking_id: show_join_requests(app, id),
+            ).pack(side="right", padx=5)
         ctk.CTkButton(
             button_row,
             text="Cancel Booking",
@@ -88,6 +106,8 @@ def fetch_booking_details(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    capacity = booking.get("room_capacity")
+    attendee_count = booking.get("attendee_count") or 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -95,6 +115,9 @@ def fetch_booking_details(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+
+    if capacity is not None:
+        booking["available_capacity"] = max(capacity - attendee_count, 0)
 
     return booking
 
@@ -213,3 +236,77 @@ def invite_users(app, booking_id):
     send_button.pack(side="right", padx=6, pady=6)
 
     email_var.trace_add("write", schedule_verify)
+
+
+def show_join_requests(app, booking_id):
+    requests_window = ctk.CTkToplevel(app)
+    requests_window.geometry("500x360")
+    requests_window.title("Pending Join Requests")
+    requests_window.grab_set()
+
+    ctk.CTkLabel(
+        requests_window,
+        text="Current Join Requests",
+        font=("Arial", 16, "bold"),
+    ).pack(pady=(12, 8))
+
+    container = ctk.CTkScrollableFrame(requests_window, width=460, height=260)
+    container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+    try:
+        response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}/join-requests")
+    except requests.RequestException:
+        ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
+        return
+
+    if response.status_code != 200:
+        ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
+        return
+
+    requests_payload = response.json()
+    pending_items = [r for r in requests_payload if r.get("status") == "pending"]
+
+    if not pending_items:
+        ctk.CTkLabel(container, text="No pending requests.").pack(pady=12)
+        return
+
+    def handle_request(request_id: str, decision: str):
+        try:
+            result = requests.put(
+                f"http://127.0.0.1:8000/join-requests/{request_id}/status",
+                params={"new_status": decision},
+            )
+        except requests.RequestException:
+            return
+
+        if result.status_code == 200:
+            requests_window.destroy()
+            show_join_requests(app, booking_id)
+
+    for item in pending_items:
+        frame = ctk.CTkFrame(container)
+        frame.pack(fill="x", padx=8, pady=6)
+
+        user = item.get("user", {})
+        full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get("email", "User")
+        ctk.CTkLabel(frame, text=full_name, anchor="w", font=("Arial", 13, "bold")).pack(anchor="w", padx=10, pady=(8, 0))
+        ctk.CTkLabel(frame, text=user.get("email", ""), anchor="w").pack(anchor="w", padx=10)
+
+        actions = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+        actions.pack(fill="x", padx=10, pady=(4, 8))
+        ctk.CTkButton(
+            actions,
+            text="Accept",
+            width=90,
+            fg_color="#33cc33",
+            hover_color="#00cc00",
+            command=lambda rid=item.get("request_id"): handle_request(rid, "accepted"),
+        ).pack(side="right", padx=4)
+        ctk.CTkButton(
+            actions,
+            text="Decline",
+            width=90,
+            fg_color="#cc3333",
+            hover_color="#990000",
+            command=lambda rid=item.get("request_id"): handle_request(rid, "declined"),
+        ).pack(side="right", padx=4)

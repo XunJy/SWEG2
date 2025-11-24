@@ -4,6 +4,17 @@ from uuid import uuid4
 from app.db.database import get_db_connection, DB_PATH
 
 
+def _count_attendees(booking_id: str) -> int:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM user_booking WHERE booking_id = ?",
+            (booking_id,),
+        )
+        result = cursor.fetchone()
+        return int(result[0]) if result else 0
+
+
 def parse_datetime(value: str) -> datetime:
     """Parse a datetime string that may use multiple formats.
 
@@ -105,12 +116,17 @@ def get_public_bookings(user_id):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
-                   r.number, r.building, r.capacity
+                   r.number, r.building, r.capacity,
+                   (
+                        SELECT COUNT(*)
+                        FROM user_booking ub_count
+                        WHERE ub_count.booking_id = b.booking_id
+                   ) AS attendee_count
             FROM booking b
             JOIN room r ON b.room_id = r.room_id
             LEFT JOIN user_booking ub ON b.booking_id = ub.booking_id AND ub.user_id = ?
             WHERE b.public = 1
-            AND (ub.user_id IS NULL OR ub.organiser = 1)
+            AND ub.user_id IS NULL
         """, (user_id,))
         rows = cursor.fetchall()
 
@@ -126,6 +142,7 @@ def get_public_bookings(user_id):
             "room_number": row[7],
             "room_building": row[8],
             "room_capacity": row[9],
+            "attendee_count": row[10],
         }
         for row in rows
     ]
@@ -146,6 +163,8 @@ def read_booking(booking_id):
     if row is None:
         return None
 
+    attendee_count = _count_attendees(booking_id)
+
     return {
         "booking_id": row[0],
         "room_id": row[1],
@@ -157,6 +176,7 @@ def read_booking(booking_id):
         "room_number": row[7],
         "room_building": row[8],
         "room_capacity": row[9],
+        "attendee_count": attendee_count,
     }
 
 
@@ -192,10 +212,10 @@ def read_bookings_by_user(user_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT booking_id, room_id, start_time, end_time, name, description, public
-            FROM booking
-            JOIN user_booking USING (booking_id)
-            WHERE user_id = ?
+            SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public, ub.organiser
+            FROM booking b
+            JOIN user_booking ub USING (booking_id)
+            WHERE ub.user_id = ?
         """, (user_id,))
         rows = cursor.fetchall()
 
@@ -207,7 +227,9 @@ def read_bookings_by_user(user_id):
             "end_time": r[3],
             "name": r[4],
             "description": r[5],
-            "public": bool(r[6])
+            "public": bool(r[6]),
+            "organiser": bool(r[7]),
+            "attendee_count": _count_attendees(r[0]),
         }
         for r in rows
     ]

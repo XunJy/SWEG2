@@ -95,6 +95,18 @@ def init_db():
         if "inviter_id" not in invite_columns:
             cursor.execute("ALTER TABLE invite ADD COLUMN inviter_id TEXT")
 
+        # Join Requests (for attendees asking to join a public booking)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS join_request (
+                request_id TEXT PRIMARY KEY,
+                booking_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                status TEXT DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined')),
+                FOREIGN KEY (booking_id) REFERENCES booking(booking_id) ON DELETE CASCADE ON UPDATE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+            );
+        """)
+
         #--------------
         # JOINING TABLES
         #--------------

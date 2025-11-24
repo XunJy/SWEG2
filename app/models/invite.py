@@ -103,21 +103,47 @@ def get_invites_by_user(user_id: str) -> list[Invite]:
 
 # UPDATE
 def update_invite_status(invite_id, new_status):
-    
+    from app.models.booking import read_booking
+    from app.models.user_booking import create_user_booking
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
+            SELECT booking_id, user_id
+            FROM invite
+            WHERE invite_id = ?
+        """, (invite_id,))
+        invite_row = cursor.fetchone()
+
+        if not invite_row:
+            return False
+
+        booking_id, user_id = invite_row
+
+        if new_status == "accepted":
+            booking = read_booking(booking_id)
+            if not booking:
+                return False
+
+            attendee_count = booking.get("attendee_count") or 0
+            capacity = booking.get("room_capacity") or 0
+            if capacity and attendee_count >= capacity:
+                raise ValueError("Booking is at full capacity.")
+
+            create_user_booking(user_id, booking_id, organiser=False)
+
+        cursor.execute("""
             UPDATE invite
             SET status = ?
-            WHERE invite_id = ? 
+            WHERE invite_id = ?
         """, (new_status, invite_id))
         conn.commit()
-        
+
         updated = cursor.rowcount > 0
-        
+
         if updated:
             log_action("system", f"Updated invite {invite_id} status to {new_status}")
-        
+
         return updated
 
 

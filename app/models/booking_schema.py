@@ -16,6 +16,8 @@ class BookingResponse(BookingCreate):
     room_number: Optional[str] = None
     room_building: Optional[str] = None
     room_capacity: Optional[int] = None
+    attendee_count: Optional[int] = None
+    organiser: Optional[bool] = None
 
     # Pydantic configuration to work with ORM objects (tuples, dictionaries, python classes)
     class Config:

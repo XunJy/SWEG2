@@ -31,6 +31,8 @@ def show_events(app):
 
     for event in events:
         details = fetch_booking_details(event.get("booking_id"))
+        attendee_count = details.get("attendee_count") or event.get("attendee_count") or 0
+        capacity = details.get("room_capacity") or event.get("room_capacity")
         frame = ctk.CTkFrame(events_frame)
         frame.pack(fill="x", padx=10, pady=10)
 
@@ -52,6 +54,8 @@ def show_events(app):
             text=f"Time: {details.get('start_time')} - {details.get('end_time')}",
             anchor="w",
         ).pack(side="left", padx=(0, 10))
+        if capacity:
+            ctk.CTkLabel(row, text=f"Attendees: {attendee_count}/{capacity}").pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             row,
             text="View More",
@@ -61,6 +65,15 @@ def show_events(app):
             hover_color="#005A9E",
             command=lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"),
         ).pack(side="right")
+        ctk.CTkButton(
+            row,
+            text="Apply to Join",
+            width=120,
+            height=28,
+            fg_color="#4a6fa5",
+            hover_color="#365781",
+            command=lambda id=details.get("booking_id"): request_join(app, id),
+        ).pack(side="right", padx=(0, 6))
 
 
 @clear_contents
@@ -75,18 +88,20 @@ def show_my_events(app):
         ctk.CTkLabel(events_frame, text="Please log in to view your events.").pack(pady=20)
         return
 
-    response = requests.get(f"http://127.0.0.1:8000/bookings/user/{app.user_id}")
+    response = requests.get(f"http://127.0.0.1:8000/users/{app.user_id}/bookings")
     if response.status_code != 200:
         ctk.CTkLabel(events_frame, text="Unable to load your events.").pack(pady=20)
         return
 
-    events = response.json()
+    events = [event for event in response.json() if not event.get("organiser")]
     if not events:
         ctk.CTkLabel(events_frame, text="You have no events yet.").pack(pady=20)
         return
 
     for event in events:
         details = fetch_booking_details(event.get("booking_id"))
+        attendee_count = details.get("attendee_count") or 0
+        capacity = details.get("room_capacity")
         frame = ctk.CTkFrame(events_frame)
         frame.pack(fill="x", padx=10, pady=10)
 
@@ -107,6 +122,8 @@ def show_my_events(app):
             text=f"Time: {details.get('start_time')} - {details.get('end_time')}",
             anchor="w",
         ).pack(side="left", padx=(0, 10))
+        if capacity:
+            ctk.CTkLabel(row, text=f"Attendees: {attendee_count}/{capacity}").pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             row,
             text="View More",
@@ -116,3 +133,29 @@ def show_my_events(app):
             hover_color="#005A9E",
             command=lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"),
         ).pack(side="right")
+
+
+def request_join(app, booking_id: str):
+    if not getattr(app, "user_id", None):
+        return
+
+    try:
+        response = requests.post(
+            f"http://127.0.0.1:8000/bookings/{booking_id}/join-requests",
+            json={"user_id": app.user_id},
+        )
+    except requests.RequestException:
+        toast = ctk.CTkToplevel(app)
+        toast.geometry("320x140")
+        ctk.CTkLabel(toast, text="Unable to submit request.").pack(pady=20)
+        ctk.CTkButton(toast, text="OK", command=toast.destroy).pack(pady=8)
+        return
+
+    toast = ctk.CTkToplevel(app)
+    toast.geometry("320x140")
+    if response.status_code == 200:
+        ctk.CTkLabel(toast, text="Join request submitted.").pack(pady=20)
+    else:
+        detail = response.json().get("detail") if response.headers.get("content-type", "").startswith("application/json") else "Request failed"
+        ctk.CTkLabel(toast, text=detail or "Request failed").pack(pady=20)
+    ctk.CTkButton(toast, text="OK", command=toast.destroy).pack(pady=8)
