@@ -2,6 +2,7 @@ import customtkinter as ctk
 import requests
 
 from UI.components.clear_contents import clear_contents
+from UI.pages.bookings_page import fetch_booking_details
 
 
 @clear_contents
@@ -115,10 +116,3 @@ def show_my_events(app):
             hover_color="#005A9E",
             command=lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"),
         ).pack(side="right")
-
-
-def fetch_booking_details(booking_id):
-    response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}")
-    if response.status_code == 200:
-        return response.json()
-    return {"booking_id": booking_id}

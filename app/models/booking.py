@@ -104,12 +104,13 @@ def get_public_bookings(user_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT *
+            SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
+                   r.number, r.building, r.capacity
             FROM booking b
+            JOIN room r ON b.room_id = r.room_id
+            LEFT JOIN user_booking ub ON b.booking_id = ub.booking_id AND ub.user_id = ?
             WHERE b.public = 1
-            AND b.booking_id NOT IN (
-                SELECT booking_id FROM user_booking WHERE user_id = ?
-            )
+            AND (ub.user_id IS NULL OR ub.organiser = 1)
         """, (user_id,))
         rows = cursor.fetchall()
 
@@ -121,7 +122,10 @@ def get_public_bookings(user_id):
             "end_time": row[3],
             "name": row[4],
             "description": row[5],
-            "public": bool(row[6])
+            "public": bool(row[6]),
+            "room_number": row[7],
+            "room_building": row[8],
+            "room_capacity": row[9],
         }
         for row in rows
     ]
