@@ -69,6 +69,7 @@ def init_db():
             );
         """)
 
+        
         # Invites
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS invite (
@@ -76,20 +77,22 @@ def init_db():
                 booking_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 status TEXT DEFAULT 'pending' CHECK (status IN ('pending','accepted', 'declined')),
+                message TEXT,
+                inviter_id TEXT,
                 FOREIGN KEY (booking_id) REFERENCES booking(booking_id) ON DELETE CASCADE ON UPDATE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES user(user_id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE
             );
         """)
-        
-        # Facilities (in rooms)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS facility (
-                facility_id TEXT PRIMARY KEY,
-                name TEXT UNIQUE NOT NULL
-            );
-        """)
+
+        # Backfill invite table columns if the database pre-dates message/inviter support
+        cursor.execute("PRAGMA table_info(invite)")
+        invite_columns = {row[1] for row in cursor.fetchall()}
+        if "message" not in invite_columns:
+            cursor.execute("ALTER TABLE invite ADD COLUMN message TEXT")
+        if "inviter_id" not in invite_columns:
+            cursor.execute("ALTER TABLE invite ADD COLUMN inviter_id TEXT")
 
         #--------------
         # JOINING TABLES

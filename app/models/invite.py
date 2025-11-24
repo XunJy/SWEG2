@@ -11,35 +11,39 @@ DB_PATH = 'database.db'
 # INVITE CLASS
 #----------------
 class Invite(BaseModel):
-    invite_id : str
+    invite_id: str
     booking_id: str
     user_id: str
     status: str
+    message: str | None = None
+    inviter_id: str | None = None
 
 #--------------------
 # CRUD
 #--------------------
 
 # CREATE
-def create_invite(booking_id: str, user_id: str, status: str = 'pending') -> Invite:
+def create_invite(booking_id: str, user_id: str, inviter_id: str | None = None, status: str = 'pending', message: str | None = None) -> Invite:
     invite_id = str(uuid4())
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
         cursor.execute("""
-            INSERT INTO invite (invite_id, booking_id, user_id, status)
-            VALUES (?, ?, ?, ?)
-        """, (invite_id, booking_id, user_id, status))
+            INSERT INTO invite (invite_id, booking_id, user_id, status, message, inviter_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (invite_id, booking_id, user_id, status, message, inviter_id))
         conn.commit() 
 
-        log_action(user_id, f"Created invite {invite_id} for booking {booking_id}")
+        log_action(inviter_id or user_id, f"Created invite {invite_id} for booking {booking_id}")
         
         return Invite(
             invite_id=invite_id,
             booking_id=booking_id,
             user_id=user_id,
-            status=status
+            status=status,
+            message=message,
+            inviter_id=inviter_id,
         )
 
 # READ
@@ -47,7 +51,7 @@ def get_invite_by_id(invite_id):
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT invite_id, booking_id, user_id, status FROM invite WHERE invite_id = ?", (invite_id,))
+        cursor.execute("SELECT invite_id, booking_id, user_id, status, message, inviter_id FROM invite WHERE invite_id = ?", (invite_id,))
         
         row = cursor.fetchone()
         return Invite(*row) if row else None
@@ -57,7 +61,7 @@ def get_all_invites():
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT invite_id, booking_id, user_id, status FROM invite")
+        cursor.execute("SELECT invite_id, booking_id, user_id, status, message, inviter_id FROM invite")
         
         rows = cursor.fetchall()
         return [Invite(*row) for row in rows]
@@ -67,7 +71,7 @@ def get_invites_by_booking(booking_id):
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT invite_id, booking_id, user_id, status FROM invite WHERE booking_id = ?", (booking_id,))
+        cursor.execute("SELECT invite_id, booking_id, user_id, status, message, inviter_id FROM invite WHERE booking_id = ?", (booking_id,))
     
         rows = cursor.fetchall()
         return [Invite(*row) for row in rows]
@@ -77,8 +81,8 @@ def get_invites_by_user(user_id: str) -> list[Invite]:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT invite_id, booking_id, user_id, status 
-            FROM invite 
+            SELECT invite_id, booking_id, user_id, status, message, inviter_id
+            FROM invite
             WHERE user_id = ?
         """, (user_id,))
         
@@ -89,7 +93,9 @@ def get_invites_by_user(user_id: str) -> list[Invite]:
                 invite_id=row[0],
                 booking_id=row[1],
                 user_id=row[2],
-                status=row[3]
+                status=row[3],
+                message=row[4],
+                inviter_id=row[5],
             ) for row in rows
         ]
 

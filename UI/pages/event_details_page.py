@@ -5,7 +5,7 @@ from UI.components.clear_contents import clear_contents
 
 
 @clear_contents
-def view_event_details(app, id, caller, booking_id=None):
+def view_event_details(app, id, caller, booking_id=None, invite=None):
     from UI.pages.events_page import show_events
     from UI.pages.invites_page import show_invites
 
@@ -17,6 +17,9 @@ def view_event_details(app, id, caller, booking_id=None):
         fg_color="#0078D7",
         hover_color="#005A9E",
     )
+
+    invite_message = invite.get("message") if invite else None
+    inviter_name = invite.get("inviter_name") if invite else None
 
     if caller == "events":
         back_button.configure(command=lambda: show_events(app))
@@ -49,6 +52,12 @@ def view_event_details(app, id, caller, booking_id=None):
         ctk.CTkLabel(app, text=f"Room: {room_display}").pack(pady=(0, 5))
         ctk.CTkLabel(app, text=f"Start Time: {booking.get('start_time')}").pack(pady=(0, 5))
         ctk.CTkLabel(app, text=f"End Time: {booking.get('end_time')}").pack(pady=(0, 10))
+
+        if inviter_name:
+            ctk.CTkLabel(app, text=f"Invited by: {inviter_name}").pack(pady=(0, 5))
+        if invite_message:
+            ctk.CTkLabel(app, text="Message:").pack(pady=(0, 2))
+            ctk.CTkLabel(app, text=invite_message, wraplength=450, justify="left").pack(pady=(0, 10))
 
         if caller == "invites":
             ctk.CTkButton(
@@ -103,6 +112,18 @@ def fetch_booking(booking_id):
 
 
 def accept_invite(app, id):
+    response = requests.put(f"http://127.0.0.1:8000/invites/{id}/status/accept")
+    if response.status_code != 200:
+        error_screen = ctk.CTkToplevel(app)
+        error_screen.geometry("300x150")
+        error_screen.title("Invite Acceptance Failed")
+        ctk.CTkLabel(error_screen, text="Unable to accept invite.").pack(pady=20)
+        ctk.CTkButton(error_screen, text="OK", command=error_screen.destroy).pack(pady=20)
+        error_screen.focus_force()
+        error_screen.attributes("-topmost", True)
+        error_screen.after(1000, lambda: error_screen.attributes("-topmost", False))
+        return
+
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Accepted")
@@ -114,13 +135,25 @@ def accept_invite(app, id):
 
 
 def close_accept_and_decline_screen(app, screen):
-    from UI.pages.events_page import show_events
+    from UI.pages.invites_page import show_invites
 
     screen.destroy()
-    show_events(app)
+    show_invites(app)
 
 
 def decline_invite(app, id):
+    response = requests.put(f"http://127.0.0.1:8000/invites/{id}/status/decline")
+    if response.status_code != 200:
+        error_screen = ctk.CTkToplevel(app)
+        error_screen.geometry("300x150")
+        error_screen.title("Invite Decline Failed")
+        ctk.CTkLabel(error_screen, text="Unable to decline invite.").pack(pady=20)
+        ctk.CTkButton(error_screen, text="OK", command=error_screen.destroy).pack(pady=20)
+        error_screen.focus_force()
+        error_screen.attributes("-topmost", True)
+        error_screen.after(1000, lambda: error_screen.attributes("-topmost", False))
+        return
+
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Declined")

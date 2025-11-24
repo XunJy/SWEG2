@@ -38,6 +38,8 @@ class UserCreateResponse(BaseModel):
 class InviteCreate(BaseModel):
     booking_id: str
     user_email: str
+    message: str | None = None
+    inviter_id: str | None = None
 
 class UserBookingInfo(BaseModel):
     user: UserRead
@@ -225,7 +227,9 @@ def api_create_invite(invite: InviteCreate):
     created = create_invite(
         booking_id=invite.booking_id,
         user_id=user["user_id"],  # Use the user_id from email (i.e., email is translated to user_id)
-        status='pending'
+        status='pending',
+        inviter_id=invite.inviter_id,
+        message=invite.message,
     )
 
     if created:
