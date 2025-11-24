@@ -31,3 +31,9 @@
 [2025-11-23 16:48:21] 57574411-dd2d-4f7c-b83c-ee5ed9336eb7 | Action: Created invite 68e8c302-34d6-4e24-9000-97bf887409b6 for booking f5e9c491-3397-4d38-85f5-00ef73386b80
 [2025-11-23 17:01:27] system | Action: Updated invite 68e8c302-34d6-4e24-9000-97bf887409b6 status to accepted
 [2025-11-23 17:07:02] system | Action: Created public booking b61096b8-8b29-4c31-bb02-1079ff1d526f in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-23 22:00:00 to 2025-11-24 02:00:00
+[2025-11-24 01:14:10] system | Action: Deleted booking b61096b8-8b29-4c31-bb02-1079ff1d526f
+[2025-11-24 01:14:16] system | Action: Deleted booking f5e9c491-3397-4d38-85f5-00ef73386b80
+[2025-11-24 01:14:19] system | Action: Deleted booking dc2da023-5915-4f36-9b77-6d3b63990e6d
+[2025-11-24 01:58:44] system | Action: Created public booking 5e233e5d-5815-474e-9d85-4e1819384cde in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-24 00:00:00 to 2025-11-24 01:00:00
+[2025-11-24 01:58:44] CREATE_USER_BOOKING | Action: User c18e8cfe-f9f4-4e09-a896-63873eeb805e linked to booking 5e233e5d-5815-474e-9d85-4e1819384cde (organiser=True)
+[2025-11-24 02:38:33] system | Action: Deleted booking 5e233e5d-5815-474e-9d85-4e1819384cde
