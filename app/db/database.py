@@ -1,6 +1,10 @@
-import sqlite3
 import os
+import sqlite3
 from contextlib import contextmanager
+from secrets import token_urlsafe
+import uuid
+
+import bcrypt
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
 
@@ -49,9 +53,21 @@ def init_db():
                 room_id TEXT PRIMARY KEY,
                 number TEXT NOT NULL,
                 building TEXT NOT NULL,
-                capacity INTEGER NOT NULL
+                capacity INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'available',
+                open_time TEXT,
+                close_time TEXT
             );
         """)
+
+        # Backfill new columns for existing deployments
+        existing_room_columns = {row[1] for row in cursor.execute("PRAGMA table_info(room)").fetchall()}
+        if "status" not in existing_room_columns:
+            cursor.execute("ALTER TABLE room ADD COLUMN status TEXT NOT NULL DEFAULT 'available'")
+        if "open_time" not in existing_room_columns:
+            cursor.execute("ALTER TABLE room ADD COLUMN open_time TEXT")
+        if "close_time" not in existing_room_columns:
+            cursor.execute("ALTER TABLE room ADD COLUMN close_time TEXT")
 
         # Bookings
         cursor.execute("""
@@ -137,4 +153,25 @@ def init_db():
                     ON UPDATE CASCADE
             );
         """)
+
+        # Seed an initial admin account if none exists
+        cursor.execute("SELECT 1 FROM user WHERE admin = 1 LIMIT 1")
+        existing_admin = cursor.fetchone()
+        if not existing_admin:
+            admin_id = str(uuid.uuid4())
+            hashed_password = bcrypt.hashpw("Admin".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO user (user_id, first_name, last_name, email, password, recovery_code, admin)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+                """,
+                (
+                    admin_id,
+                    "System",
+                    "Administrator",
+                    "Admin",
+                    hashed_password,
+                    token_urlsafe(16),
+                ),
+            )
 

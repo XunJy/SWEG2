@@ -5,6 +5,7 @@ from UI.pages.booking_by_room import show_booking_room
 from UI.pages.booking_by_date import show_booking_date
 from UI.pages.bookings_page import show_my_bookings
 from UI.components.theme import change_theme
+from UI.pages.admin_page import show_admin_dashboard
 
 def fill_sidebar(app):
     ctk.CTkButton(app.sidebar, text="Available Events", width=100, command= lambda: show_events(app)).pack(pady=10)
@@ -13,6 +14,14 @@ def fill_sidebar(app):
     ctk.CTkButton(app.sidebar, text="Make Booking (by Date)", width=100, command=lambda: show_booking_date(app)).pack(pady=10)
     ctk.CTkButton(app.sidebar, text="Make Booking (by Room)", width=100, command=lambda: show_booking_room(app)).pack(pady=10)
     ctk.CTkButton(app.sidebar, text="My Bookings", width=100, command=lambda: show_my_bookings(app)).pack(pady=10)
+    app.admin_button = ctk.CTkButton(
+        app.sidebar,
+        text="Admin Tools",
+        width=100,
+        command=lambda: show_admin_dashboard(app),
+        state="disabled",
+    )
+    app.admin_button.pack(pady=10)
     ctk.CTkLabel(app.sidebar, text="Theme:", anchor="w").pack(padx=10, pady=(0, 5))
     app.theme_option = ctk.CTkOptionMenu(
         app.sidebar,

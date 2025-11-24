@@ -61,10 +61,32 @@ def is_admin(user_id):
     """Check if a user is a system admin."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-    
+
         cursor.execute("SELECT admin FROM user WHERE user_id = ?", (user_id,))
         row = cursor.fetchone()
         return bool(row and row[0] == 1)
+
+
+def list_users():
+    """Return all users for administration."""
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id, first_name, last_name, email, admin FROM user ORDER BY last_name, first_name"
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "user_id": row[0],
+            "first_name": row[1],
+            "last_name": row[2],
+            "email": row[3],
+            "admin": bool(row[4]),
+        }
+        for row in rows
+    ]
 
 #-------------------------
 # USER CRUD
@@ -196,4 +218,28 @@ def delete_user(email: str, password: str):
         cursor.execute("DELETE FROM user WHERE email = ?", (email,))
         conn.commit()
     return {"message": f"Account '{email}' deleted successfully"}
+
+
+def delete_user_as_admin(admin_id: str, target_user_id: str):
+    if not is_admin(admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user WHERE user_id = ?", (target_user_id,))
+        conn.commit()
+
+    return {"message": "User removed"}
+
+
+def set_admin_status(admin_id: str, target_user_id: str, admin: bool):
+    if not is_admin(admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE user SET admin = ? WHERE user_id = ?", (int(admin), target_user_id))
+        conn.commit()
+
+    return {"message": "Role updated", "admin": admin}
 

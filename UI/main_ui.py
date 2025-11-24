@@ -13,6 +13,7 @@ class MainUI(ctk.CTkFrame):
         super().__init__(master)
         self.pack(fill="both", expand=True)
         self.sidebar_visible = False
+        self.is_admin = False
 
         self.burger_menu_button = ctk.CTkButton(
             self, 
@@ -72,12 +73,15 @@ if __name__ == "__main__":
 
     login_screen = None
 
-    def login_success(user_id):
+    def login_success(user_data):
         global login_screen
         if login_screen is not None and login_screen.winfo_exists():
             login_screen.destroy()
         app.burger_menu_button.configure(state="normal")
-        app.user_id = user_id
+        app.user_id = user_data.get("user_id")
+        app.is_admin = user_data.get("admin", False)
+        if hasattr(app, "admin_button"):
+            app.admin_button.configure(state="normal" if app.is_admin else "disabled")
         show_events(app)
 
     def show_login():

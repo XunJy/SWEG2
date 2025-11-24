@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from app.models.user import *
 from pydantic import BaseModel
@@ -46,6 +46,40 @@ class UserBookingInfo(BaseModel):
 class BookingInfo(BaseModel):
     booking_id: str
     organiser: bool
+
+
+class RoomCreateRequest(BaseModel):
+    admin_id: str
+    number: str
+    building: str
+    capacity: int
+    status: str = "available"
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
+
+
+class RoomUpdateRequest(BaseModel):
+    admin_id: str
+    number: Optional[str] = None
+    building: Optional[str] = None
+    capacity: Optional[int] = None
+    status: Optional[str] = None
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
+
+
+class AdminUserCreate(BaseModel):
+    admin_id: str
+    first_name: str
+    last_name: str
+    email: str
+    password: str
+    admin: bool = False
+
+
+class AdminRoleUpdate(BaseModel):
+    admin_id: str
+    admin: bool
 
 
 # -------------------------
@@ -147,6 +181,65 @@ def api_delete_user(user_id: str, password: str):
     delete_user(user["email"], password)
     return {"message": "Account deleted"}
 
+
+# -------------------------
+# ADMIN ROUTES - ROOMS
+# -------------------------
+
+
+@app.get("/admin/rooms")
+def api_admin_list_rooms(admin_id: str):
+    if not is_admin(admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+    return read_rooms()
+
+
+@app.post("/admin/rooms", response_model=MessageResponse)
+def api_admin_create_room(data: RoomCreateRequest):
+    try:
+        room_id = create_room(
+            data.admin_id,
+            data.number,
+            data.building,
+            data.capacity,
+            data.status,
+            data.open_time,
+            data.close_time,
+        )
+        return MessageResponse(message=f"Room created with ID {room_id}")
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.put("/admin/rooms/{room_id}", response_model=MessageResponse)
+def api_admin_update_room(room_id: str, data: RoomUpdateRequest):
+    try:
+        update_room(
+            data.admin_id,
+            room_id,
+            number=data.number,
+            building=data.building,
+            capacity=data.capacity,
+            status=data.status,
+            open_time=data.open_time,
+            close_time=data.close_time,
+        )
+        return MessageResponse(message="Room updated")
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/admin/rooms/{room_id}", response_model=MessageResponse)
+def api_admin_delete_room(room_id: str, admin_id: str):
+    try:
+        delete_room(admin_id, room_id)
+        return MessageResponse(message="Room deleted")
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
 # -------------------------
 # BOOKING ROUTES
 # -------------------------
@@ -196,6 +289,88 @@ def api_delete_booking(booking_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
     raise HTTPException(status_code=404, detail="Booking not found")
+
+
+# -------------------------
+# ADMIN ROUTES - BOOKINGS
+# -------------------------
+
+
+@app.get("/admin/bookings")
+def api_admin_all_bookings(
+    admin_id: str,
+    room_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    start_after: Optional[str] = None,
+    end_before: Optional[str] = None,
+):
+    if not is_admin(admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+
+    return read_all_bookings(
+        room_id=room_id, user_id=user_id, start_after=start_after, end_before=end_before
+    )
+
+
+@app.delete("/admin/bookings/{booking_id}", response_model=MessageResponse)
+def api_admin_cancel_booking(booking_id: str, admin_id: str):
+    try:
+        admin_cancel_booking(admin_id, booking_id)
+        return MessageResponse(message="Booking cancelled")
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# -------------------------
+# ADMIN ROUTES - USERS
+# -------------------------
+
+
+@app.get("/admin/users")
+def api_admin_list_users(admin_id: str):
+    if not is_admin(admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+    return list_users()
+
+
+@app.post("/admin/users", response_model=UserCreateResponse)
+def api_admin_create_user(data: AdminUserCreate):
+    if not is_admin(data.admin_id):
+        raise HTTPException(status_code=401, detail="Admin rights required")
+
+    user_id, recovery_code = create_user(
+        UserCreate(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            email=data.email,
+            password=data.password,
+            admin=data.admin,
+        )
+    )
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User creation failed")
+    return UserCreateResponse(message="User created successfully", user_id=user_id, recovery_code=recovery_code)
+
+
+@app.put("/admin/users/{user_id}/role", response_model=MessageResponse)
+def api_admin_update_role(user_id: str, data: AdminRoleUpdate):
+    try:
+        result = set_admin_status(data.admin_id, user_id, data.admin)
+        return MessageResponse(message=result["message"])
+    except HTTPException as e:
+        raise e
+
+
+@app.delete("/admin/users/{user_id}", response_model=MessageResponse)
+def api_admin_delete_user(user_id: str, admin_id: str):
+    try:
+        delete_user_as_admin(admin_id, user_id)
+        return MessageResponse(message="User deleted")
+    except HTTPException as e:
+        raise e
+
 
 # GET: Read a booking by user ID
 @app.get("/bookings/user/{user_id}", response_model=List[BookingResponse])

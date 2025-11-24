@@ -1,7 +1,10 @@
 from app.logs import log_action
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 from app.db.database import get_db_connection, DB_PATH
+from app.logs import log_action
+from app.models.user import is_admin
 
 
 def parse_datetime(value: str) -> datetime:
@@ -209,13 +212,37 @@ def read_bookings_by_user(user_id):
     ]
 
 # Retrieve all bookings
-def read_all_bookings():
+def read_all_bookings(room_id=None, user_id=None, start_after=None, end_before=None):
+    filters = []
+    params = []
+
+    if room_id:
+        filters.append("b.room_id = ?")
+        params.append(room_id)
+    if user_id:
+        filters.append("ub.user_id = ?")
+        params.append(user_id)
+    if start_after:
+        filters.append("b.start_time >= ?")
+        params.append(str(parse_datetime(start_after)))
+    if end_before:
+        filters.append("b.end_time <= ?")
+        params.append(str(parse_datetime(end_before)))
+
+    where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT booking_id, room_id, start_time, end_time, name, description, public
-            FROM booking
-        """)
+        cursor.execute(
+            f"""
+            SELECT DISTINCT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public
+            FROM booking b
+            LEFT JOIN user_booking ub ON b.booking_id = ub.booking_id
+            {where_clause}
+            ORDER BY b.start_time ASC
+            """,
+            params,
+        )
         rows = cursor.fetchall()
 
     return [
@@ -226,7 +253,7 @@ def read_all_bookings():
             "end_time": row[3],
             "name": row[4],
             "description": row[5],
-            "public": bool(row[6])
+            "public": bool(row[6]),
         }
         for row in rows
     ]
@@ -309,4 +336,14 @@ def delete_booking(booking_id, user_id="system"):
 
     log_action(user_id, f"Deleted booking {booking_id}")
     return cursor.rowcount > 0
+
+
+def admin_cancel_booking(admin_id, booking_id):
+    if not is_admin(admin_id):
+        raise PermissionError("Access denied: admin privileges required.")
+
+    success = delete_booking(booking_id, user_id=admin_id)
+    if not success:
+        raise ValueError("Booking not found")
+    return success
 
