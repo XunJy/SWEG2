@@ -48,8 +48,10 @@ class LoginUI(ctk.CTkFrame):
 
         response = requests.post("http://127.0.0.1:8000/login", json={"email": username, "password": password})
         if response.status_code == 200:
-            user_id = response.json().get("user_id")
-            self.on_success(user_id)
+            user_data = response.json()
+            user_id = user_data.get("user_id")
+            is_admin = user_data.get("admin", False)
+            self.on_success(user_id, is_admin)
         else:
             error_message = response.json().get("detail", "Login failed")
             for widget in self.winfo_children():

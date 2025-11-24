@@ -4,6 +4,7 @@ from PIL import ImageTk, Image
 from UI.authentication.login_ui import LoginUI
 from UI.components.sidebar import fill_sidebar
 from UI.components.sidebar_functions import toggle_sidebar
+from UI.pages.admin_page import show_admin_dashboard
 from UI.pages.events_page import show_events
 
 
@@ -12,10 +13,13 @@ class MainUI(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
         self.pack(fill="both", expand=True)
+        self.user_id = None
+        self.is_admin = False
         self.sidebar_visible = False
+        self.logout_callback = lambda: None
 
         self.burger_menu_button = ctk.CTkButton(
-            self, 
+            self,
             text="☰",
             width=40,
             height=40,
@@ -72,13 +76,19 @@ if __name__ == "__main__":
 
     login_screen = None
 
-    def login_success(user_id):
+    def login_success(user_id, is_admin):
         global login_screen
         if login_screen is not None and login_screen.winfo_exists():
             login_screen.destroy()
+            login_screen = None
         app.burger_menu_button.configure(state="normal")
         app.user_id = user_id
-        show_events(app)
+        app.is_admin = is_admin
+        fill_sidebar(app)
+        if is_admin:
+            show_admin_dashboard(app)
+        else:
+            show_events(app)
 
     def show_login():
         global login_screen
@@ -90,9 +100,26 @@ if __name__ == "__main__":
             login_screen.title("Login")
             LoginUI(login_screen, on_success=login_success)
             login_screen.focus_force()
-            login_screen.grab_set()  
+            login_screen.grab_set()
             login_screen.attributes("-topmost", True)
             login_screen.after(300, lambda: login_screen.attributes("-topmost", False))
+
+    def handle_logout():
+        if app.sidebar_visible:
+            from UI.components.sidebar_functions import hide_sidebar
+
+            hide_sidebar(app)
+        app.user_id = None
+        app.is_admin = False
+        app.burger_menu_button.configure(state="disabled")
+        for widget in app.winfo_children():
+            if widget not in app.always_present:
+                widget.destroy()
+        fill_sidebar(app)
+        show_login()
+
+    app.logout_callback = handle_logout
+    fill_sidebar(app)
 
     button = ctk.CTkButton(app, text="Login", command=show_login)
     button.pack( pady=20)
