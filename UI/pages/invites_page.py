@@ -14,9 +14,13 @@ def show_invites(app):
     for invite in results:
         booking = requests.get(f"http://127.0.0.1:8000/bookings/{invite['booking_id']}").json()
         invite_id = invite['invite_id']
-        name = booking['name']
-        description = booking['description']
-        room_id = booking['room_id']
+        name = booking.get('name')
+        description = booking.get('description')
+        room_number = booking.get('room_number') or booking.get('room_id')
+        building = booking.get('room_building')
+        room_display = f"Room {room_number}" if room_number else "Room"
+        if building:
+            room_display = f"{room_display} - {building}"
         frame = ctk.CTkFrame(invites_frame)
         frame.pack(fill="x", padx=10, pady=10)
 
@@ -37,7 +41,7 @@ def show_invites(app):
 
         ctk.CTkLabel(
             frame,
-            text=f"Location: {room_id}",
+            text=f"Room: {room_display}",
             anchor="w"
         ).pack(anchor="w", padx=10, pady=(5, 10))
 
@@ -72,5 +76,5 @@ def show_invites(app):
             height=28,
             fg_color="#0078D7",
             hover_color="#005A9E",
-            command=lambda id=invite_id: view_event_details(app, id, caller="invites")
+            command=lambda id=invite_id, booking_id=booking.get('booking_id'): view_event_details(app, id, caller="invites", booking_id=booking_id)
         ).pack(side="right", padx=5)

@@ -1,37 +1,56 @@
 import customtkinter as ctk
 import requests
+
 from UI.components.clear_contents import clear_contents
 
 
 @clear_contents
-def view_event_details(app, id, caller):
+def view_event_details(app, id, caller, booking_id=None):
     from UI.pages.events_page import show_events
     from UI.pages.invites_page import show_invites
-    back_button = ctk.CTkButton(app, text="Back", width=60, height=28, fg_color="#0078D7", hover_color="#005A9E",
+
+    back_button = ctk.CTkButton(
+        app,
+        text="Back",
+        width=60,
+        height=28,
+        fg_color="#0078D7",
+        hover_color="#005A9E",
     )
+
     if caller == "events":
         back_button.configure(command=lambda: show_events(app))
-        event = requests.get(f"http://127.0.0.1:8000/events/{id}").json()
+        booking = fetch_booking(booking_id or id)
     elif caller == "invites":
         back_button.configure(command=lambda: show_invites(app))
-        event = requests.get(f"http://127.0.0.1:8000/invites/{id}").json()
+        booking = fetch_booking(booking_id)
     elif caller == "bookings":
         from UI.pages.bookings_page import show_my_bookings
+
         back_button.configure(command=lambda: show_my_bookings(app))
-        event = requests.get(f"http://127.0.0.1:8000/bookings/{id}").json()
+        booking = fetch_booking(id)
+    else:
+        booking = None
     back_button.pack(padx=55, pady=(10, 10), anchor="w")
-    if event is None:
+
+    if booking is None:
         ctk.CTkLabel(app, text="Event not found").pack(pady=(10, 20))
         ctk.CTkButton(app, text="Back to Events", width=100, height=28, command=lambda: show_events(app)).pack(pady=(10, 10))
     else:
-        # print(f"ID: {id} Caller: {caller}")
-        # print(f"event: {event}")
-        ctk.CTkLabel(app, text=event['name']).pack(pady=(10, 10))
-        ctk.CTkLabel(app, text=event['description']).pack(pady=(0, 20))
-        ctk.CTkLabel(app, text=f"Location: {event['room_id']}").pack(pady=(0, 10))
-        ctk.CTkLabel(app, text=f"Start Time: {event['start_time']}").pack(pady=(0, 10))
-        ctk.CTkLabel(app, text=f"End Time: {event['end_time']}").pack(pady=(0, 20))
-        if caller in ["events", "invites"]:
+        ctk.CTkLabel(app, text=booking["name"], font=("Arial", 16, "bold")).pack(pady=(10, 10))
+        ctk.CTkLabel(app, text=booking.get("description", ""), wraplength=450).pack(pady=(0, 10))
+
+        room_number = booking.get("room_number") or booking.get("room_id")
+        room_building = booking.get("room_building")
+        room_display = f"Room {room_number}" if room_number else "Room"
+        if room_building:
+            room_display = f"{room_display} - {room_building}"
+
+        ctk.CTkLabel(app, text=f"Room: {room_display}").pack(pady=(0, 5))
+        ctk.CTkLabel(app, text=f"Start Time: {booking.get('start_time')}").pack(pady=(0, 5))
+        ctk.CTkLabel(app, text=f"End Time: {booking.get('end_time')}").pack(pady=(0, 10))
+
+        if caller == "invites":
             ctk.CTkButton(
                 app,
                 text="Accept",
@@ -39,7 +58,7 @@ def view_event_details(app, id, caller):
                 height=28,
                 fg_color="#33cc33",
                 hover_color="#00cc00",
-                command=lambda id=event['invite_id']: accept_invite(app, id)
+                command=lambda invite_id=id: accept_invite(app, invite_id),
             ).pack(padx=10, pady=(10, 10), anchor="e")
             ctk.CTkButton(
                 app,
@@ -48,22 +67,31 @@ def view_event_details(app, id, caller):
                 height=28,
                 fg_color="#cc3333",
                 hover_color="#990000",
-                command=lambda id=event['invite_id']: decline_invite(app, id)
+                command=lambda invite_id=id: decline_invite(app, invite_id),
             ).pack(padx=10, pady=(10, 10), anchor="e")
 
         if caller == "bookings":
             ctk.CTkButton(
                 app,
                 text="Cancel Booking",
-                width=100,
+                width=120,
                 height=28,
                 fg_color="#cc3333",
                 hover_color="#990000",
-                command=lambda id=event['booking_id']: cancel_booking(app,id)
+                command=lambda booking_id=booking.get("booking_id"): cancel_booking(app, booking_id),
             ).pack(padx=10, pady=(10, 10), anchor="e")
 
+
+def fetch_booking(booking_id):
+    if not booking_id:
+        return None
+    response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}")
+    if response.status_code == 200:
+        return response.json()
+    return None
+
+
 def accept_invite(app, id):
-    # TODO Awaiting Backend Implemnentation to store accepted invite
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Accepted")
@@ -73,13 +101,15 @@ def accept_invite(app, id):
     success_screen.attributes("-topmost", True)
     success_screen.after(1000, lambda: success_screen.attributes("-topmost", False))
 
+
 def close_accept_and_decline_screen(app, screen):
     from UI.pages.events_page import show_events
+
     screen.destroy()
     show_events(app)
 
+
 def decline_invite(app, id):
-    # TODO Awaiting Backend Implemnentation to store accepted invite
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Declined")
@@ -88,6 +118,7 @@ def decline_invite(app, id):
     success_screen.focus_force()
     success_screen.attributes("-topmost", True)
     success_screen.after(1000, lambda: success_screen.attributes("-topmost", False))
+
 
 def cancel_booking(app, id):
     request = requests.delete(f"http://127.0.0.1:8000/bookings/{id}")
@@ -110,8 +141,9 @@ def cancel_booking(app, id):
         success_screen.attributes("-topmost", True)
         success_screen.after(1000, lambda: success_screen.attributes("-topmost", False))
 
+
 def close_cancel_booking_screen(app, screen):
     from UI.pages.bookings_page import show_my_bookings
+
     screen.destroy()
     show_my_bookings(app)
-    

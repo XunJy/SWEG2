@@ -1,7 +1,9 @@
 import customtkinter as ctk
 import requests
+
 from .register_ui import create_account
 from .reset_password import reset_password
+
 
 class LoginUI(ctk.CTkFrame):
     def __init__(self, master, on_success):
