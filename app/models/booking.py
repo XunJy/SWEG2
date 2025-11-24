@@ -3,6 +3,38 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 from app.db.database import get_db_connection, DB_PATH
 
+
+def parse_datetime(value: str) -> datetime:
+    """Parse a datetime string that may use multiple formats.
+
+    The UI currently sends "%Y-%m-%d %H:%M:%S", but existing data or future
+    clients could include ISO 8601 "T" separators or omit seconds. Normalising
+    to datetime objects ensures availability checks aren't thrown off by string
+    ordering quirks.
+    """
+
+    # Fast path for already-parsed datetimes
+    if isinstance(value, datetime):
+        return value
+
+    value = str(value).strip()
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%dT%H:%M",
+    ):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+
+    # Try the flexible ISO parser as a last resort (handles timezone offsets)
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"Invalid datetime format: {value}")
+
 #-------------
 # BOOKING CRUD
 #-------------
@@ -12,17 +44,29 @@ def create_booking(room_id, start_time, end_time, name, description=None, public
     booking_id = str(uuid4())
     public_flag = 1 if public else 0 # Pydantic to SQLite conversion
 
+    # Normalise incoming times to a consistent format for reliable comparisons
+    start_dt = parse_datetime(start_time)
+    end_dt = parse_datetime(end_time)
+    if end_dt <= start_dt:
+        raise ValueError("End time must be after start time.")
+
+    normalized_start = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+    normalized_end = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
         # Check for overlapping bookings
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT booking_id
             FROM booking
             WHERE room_id = ?
             AND start_time < ?
             AND end_time > ?
-        """, (room_id, end_time, start_time))
+        """,
+            (room_id, normalized_end, normalized_start),
+        )
         overlap = cursor.fetchone()
 
         # Raise error if overlapping booking exists
@@ -30,21 +74,27 @@ def create_booking(room_id, start_time, end_time, name, description=None, public
             raise ValueError(f"Room {room_id} is already booked during this time.")
 
         # Insert the booking
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO booking (booking_id, room_id, start_time, end_time, name, description, public)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (booking_id, room_id, start_time, end_time, name, description, public_flag))
+        """,
+            (booking_id, room_id, normalized_start, normalized_end, name, description, public_flag),
+        )
 
     visibility = "public" if public else "private" # For logging public/private as a string
-    log_action(user_id, f"Created {visibility} booking {booking_id} in room {room_id} from {start_time} to {end_time}")
-    
+    log_action(
+        user_id,
+        f"Created {visibility} booking {booking_id} in room {room_id} from {normalized_start} to {normalized_end}",
+    )
+
     return {
         "booking_id": booking_id,
         "room_id": room_id,
         "name": name,
         "description": description,
-        "start_time": start_time,
-        "end_time": end_time,
+        "start_time": normalized_start,
+        "end_time": normalized_end,
         "public": public
     }
 
@@ -183,17 +233,27 @@ def read_all_bookings():
 
 # Return whether a room is free during a given time slot (check if a booking exists then)
 def get_conflicting_bookings(room_id, start_time, end_time):
+    request_start = parse_datetime(start_time)
+    request_end = parse_datetime(end_time)
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT booking_id
-            FROM booking
-            WHERE room_id = ?
-            AND start_time < ?
-            AND end_time > ?
-            LIMIT 1
-        """, (room_id, end_time, start_time))
-        return cursor.fetchone() is not None  # True if conflict exists
+        cursor.execute(
+            "SELECT start_time, end_time FROM booking WHERE room_id = ?",
+            (room_id,),
+        )
+        for existing_start, existing_end in cursor.fetchall():
+            try:
+                existing_start_dt = parse_datetime(existing_start)
+                existing_end_dt = parse_datetime(existing_end)
+            except ValueError:
+                # Skip malformed rows rather than blocking all availability
+                continue
+
+            if existing_start_dt < request_end and existing_end_dt > request_start:
+                return True
+
+    return False
     
 # Generates suggested booking slots on a given day
 def generate_time_slots_for_day(date_str: str, start_hour=9, end_hour=17):
