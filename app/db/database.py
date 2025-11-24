@@ -85,19 +85,25 @@ def init_db():
             );
         """)
 
-        # Invites
+        # Invites (also used for join requests via the "kind" column)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS invite (
                 invite_id TEXT PRIMARY KEY,
                 booking_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 status TEXT DEFAULT 'pending' CHECK (status IN ('pending','accepted', 'declined')),
+                kind TEXT NOT NULL DEFAULT 'invite' CHECK (kind IN ('invite','request')),
                 FOREIGN KEY (booking_id) REFERENCES booking(booking_id) ON DELETE CASCADE ON UPDATE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES user(user_id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE
             );
         """)
+
+        # Backfill new invite "kind" column for existing deployments
+        existing_invite_columns = {row[1] for row in cursor.execute("PRAGMA table_info(invite)").fetchall()}
+        if "kind" not in existing_invite_columns:
+            cursor.execute("ALTER TABLE invite ADD COLUMN kind TEXT NOT NULL DEFAULT 'invite'")
         
         # Facilities (in rooms)
         cursor.execute("""

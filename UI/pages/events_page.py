@@ -39,18 +39,11 @@ def show_events(app):
         row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
         row.pack(fill="x", padx=10, pady=(0, 10))
 
-        room_number = details.get("room_number") or details.get("room_id")
-        room_building = details.get("room_building")
-        room_display = f"Room {room_number}" if room_number else "Room"
-        if room_building:
-            room_display = f"{room_display} - {room_building}"
+        room_display = _format_room(details)
+        time_display = _format_time(details.get("start_time"), details.get("end_time"))
 
         ctk.CTkLabel(row, text=f"Room: {room_display}", anchor="w").pack(side="left", padx=(0, 10))
-        ctk.CTkLabel(
-            row,
-            text=f"Time: {details.get('start_time')} - {details.get('end_time')}",
-            anchor="w",
-        ).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(row, text=time_display, anchor="w").pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             row,
             text="View More",
@@ -60,6 +53,15 @@ def show_events(app):
             hover_color="#005A9E",
             command=lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"),
         ).pack(side="right")
+        ctk.CTkButton(
+            row,
+            text="申请加入",
+            width=100,
+            height=28,
+            fg_color="#5C8DFF",
+            hover_color="#3b6fdc",
+            command=lambda booking_id=details.get("booking_id"): _request_to_join(app, booking_id),
+        ).pack(side="right", padx=5)
 
 
 @clear_contents
@@ -94,18 +96,11 @@ def show_my_events(app):
         row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
         row.pack(fill="x", padx=10, pady=(0, 10))
 
-        room_number = details.get("room_number") or details.get("room_id")
-        room_building = details.get("room_building")
-        room_display = f"Room {room_number}" if room_number else "Room"
-        if room_building:
-            room_display = f"{room_display} - {room_building}"
+        room_display = _format_room(details)
+        time_display = _format_time(details.get("start_time"), details.get("end_time"))
 
         ctk.CTkLabel(row, text=f"Room: {room_display}", anchor="w").pack(side="left", padx=(0, 10))
-        ctk.CTkLabel(
-            row,
-            text=f"Time: {details.get('start_time')} - {details.get('end_time')}",
-            anchor="w",
-        ).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(row, text=time_display, anchor="w").pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             row,
             text="View More",
@@ -122,3 +117,49 @@ def fetch_booking_details(booking_id):
     if response.status_code == 200:
         return response.json()
     return {"booking_id": booking_id}
+
+
+def _format_room(details):
+    room_number = details.get("room_number") or details.get("room_id")
+    room_building = details.get("room_building")
+    room_display = f"Room {room_number}" if room_number else "Room"
+    if room_building:
+        room_display = f"{room_display} - {room_building}"
+    return room_display
+
+
+def _format_time(start, end):
+    def _fmt(value):
+        try:
+            return value.replace("T", " ")[:16]
+        except Exception:
+            return str(value)
+
+    return f"Time: {_fmt(start)} - {_fmt(end)}"
+
+
+def _request_to_join(app, booking_id):
+    notice = ctk.CTkToplevel(app)
+    notice.geometry("320x160")
+    notice.title("Join Request")
+
+    if not getattr(app, "user_id", None):
+        ctk.CTkLabel(notice, text="请先登录再申请加入。", text_color="red").pack(pady=20)
+        ctk.CTkButton(notice, text="OK", command=notice.destroy).pack(pady=10)
+        return
+
+    resp = requests.post(
+        f"http://127.0.0.1:8000/bookings/{booking_id}/requests",
+        json={"user_id": app.user_id},
+    )
+
+    if resp.status_code == 200:
+        ctk.CTkLabel(notice, text="已向发起人发送申请。").pack(pady=20)
+    else:
+        detail = resp.json().get("detail", "申请失败")
+        ctk.CTkLabel(notice, text=detail, text_color="red").pack(pady=20)
+
+    ctk.CTkButton(notice, text="OK", command=notice.destroy).pack(pady=10)
+    notice.focus_force()
+    notice.attributes("-topmost", True)
+    notice.after(1000, lambda: notice.attributes("-topmost", False))

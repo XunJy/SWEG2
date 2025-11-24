@@ -103,6 +103,7 @@ def fetch_booking(booking_id):
 
 
 def accept_invite(app, id):
+    requests.put(f"http://127.0.0.1:8000/invites/{id}/status/accept")
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Accepted")
@@ -113,14 +114,8 @@ def accept_invite(app, id):
     success_screen.after(1000, lambda: success_screen.attributes("-topmost", False))
 
 
-def close_accept_and_decline_screen(app, screen):
-    from UI.pages.events_page import show_events
-
-    screen.destroy()
-    show_events(app)
-
-
 def decline_invite(app, id):
+    requests.put(f"http://127.0.0.1:8000/invites/{id}/status/decline")
     success_screen = ctk.CTkToplevel(app)
     success_screen.geometry("300x150")
     success_screen.title("University Room Booking System - Invite Declined")
@@ -129,6 +124,13 @@ def decline_invite(app, id):
     success_screen.focus_force()
     success_screen.attributes("-topmost", True)
     success_screen.after(1000, lambda: success_screen.attributes("-topmost", False))
+
+
+def close_accept_and_decline_screen(app, screen):
+    from UI.pages.invites_page import show_invites
+
+    screen.destroy()
+    show_invites(app)
 
 
 def cancel_booking(app, id):

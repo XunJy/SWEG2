@@ -2,6 +2,9 @@ from app.logs import log_action
 from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 from uuid import uuid4
+from datetime import datetime, timedelta
+from uuid import uuid4
+
 from app.db.database import get_db_connection, DB_PATH
 from app.logs import log_action
 from app.models.user import is_admin
@@ -106,14 +109,20 @@ def create_booking(room_id, start_time, end_time, name, description=None, public
 def get_public_bookings(user_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT *
+        cursor.execute(
+            """
+            SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
+                   r.number, r.building, r.capacity
             FROM booking b
+            JOIN room r ON b.room_id = r.room_id
             WHERE b.public = 1
-            AND b.booking_id NOT IN (
+              AND b.booking_id NOT IN (
                 SELECT booking_id FROM user_booking WHERE user_id = ?
-            )
-        """, (user_id,))
+              )
+            ORDER BY b.start_time ASC
+            """,
+            (user_id,),
+        )
         rows = cursor.fetchall()
 
     return [
@@ -124,7 +133,10 @@ def get_public_bookings(user_id):
             "end_time": row[3],
             "name": row[4],
             "description": row[5],
-            "public": bool(row[6])
+            "public": bool(row[6]),
+            "room_number": row[7],
+            "room_building": row[8],
+            "room_capacity": row[9],
         }
         for row in rows
     ]
@@ -190,12 +202,17 @@ def read_bookings_by_user(user_id):
     """
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT booking_id, room_id, start_time, end_time, name, description, public
-            FROM booking
-            JOIN user_booking USING (booking_id)
-            WHERE user_id = ?
-        """, (user_id,))
+        cursor.execute(
+            """
+            SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
+                   r.number, r.building, r.capacity
+            FROM booking b
+            JOIN user_booking ub USING (booking_id)
+            JOIN room r ON b.room_id = r.room_id
+            WHERE ub.user_id = ?
+        """,
+            (user_id,),
+        )
         rows = cursor.fetchall()
 
     return [
@@ -206,7 +223,10 @@ def read_bookings_by_user(user_id):
             "end_time": r[3],
             "name": r[4],
             "description": r[5],
-            "public": bool(r[6])
+            "public": bool(r[6]),
+            "room_number": r[7],
+            "room_building": r[8],
+            "room_capacity": r[9],
         }
         for r in rows
     ]

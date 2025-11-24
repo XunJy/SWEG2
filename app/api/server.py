@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from app.models.user import *
 from pydantic import BaseModel
+from app.db.database import init_db
 
 from app.models.booking import *
 from app.models.booking_schema import *
@@ -11,6 +12,7 @@ from app.models.invite import *
 from app.models.user_booking import *
 
 app = FastAPI()
+init_db()
 
 # -------------------------
 # Root
@@ -38,6 +40,10 @@ class UserCreateResponse(BaseModel):
 class InviteCreate(BaseModel):
     booking_id: str
     user_email: str
+
+
+class JoinRequestCreate(BaseModel):
+    user_id: str
 
 class UserBookingInfo(BaseModel):
     user: UserRead
@@ -115,6 +121,11 @@ def api_create_user(user: UserCreate):
         }
 
     raise HTTPException(status_code=400, detail="User creation failed")
+
+
+@app.get("/users", response_model=List[UserRead])
+def api_list_users():
+    return [UserRead(**user) for user in list_users()]
 
 
 # Read User by user ID
@@ -435,6 +446,24 @@ def api_update_invite_status_decline(invite_id: str, new_status: str = "declined
     if updated:
         return MessageResponse(message=f"Invite {invite_id} status updated to {new_status}")
     raise HTTPException(status_code=400, detail="Failed to update invite status")
+
+
+@app.post("/bookings/{booking_id}/requests", response_model=Invite)
+def api_create_join_request(booking_id: str, data: JoinRequestCreate):
+    try:
+        return create_join_request(booking_id, data.user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bookings/{booking_id}/requests", response_model=list[Invite])
+def api_get_join_requests(booking_id: str):
+    try:
+        return get_join_requests_for_booking(booking_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------
 # User-Booking Routes

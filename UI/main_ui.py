@@ -4,6 +4,7 @@ from PIL import ImageTk, Image
 from UI.authentication.login_ui import LoginUI
 from UI.components.sidebar import fill_sidebar
 from UI.components.sidebar_functions import toggle_sidebar
+from UI.pages.admin_page import show_admin_dashboard
 from UI.pages.events_page import show_events
 
 
@@ -14,6 +15,7 @@ class MainUI(ctk.CTkFrame):
         self.pack(fill="both", expand=True)
         self.sidebar_visible = False
         self.is_admin = False
+        self.user_id = None
 
         self.burger_menu_button = ctk.CTkButton(
             self, 
@@ -41,7 +43,16 @@ class MainUI(ctk.CTkFrame):
         self.logo = ctk.CTkLabel(self, image=self.logo_image, text="")
         self.logo.place(x=530, y=0)
 
-        self.always_present = [self.sidebar, self.burger_menu_button, self.logo]
+        self.admin_access_btn = ctk.CTkButton(
+            self,
+            text="Admin Dashboard",
+            width=140,
+            state="disabled",
+            command=lambda: show_admin_dashboard(self),
+        )
+        self.admin_access_btn.place(x=380, y=10)
+
+        self.always_present = [self.sidebar, self.burger_menu_button, self.logo, self.admin_access_btn]
         fill_sidebar(self)
 
         # Hard Coded Events, Invites and Rooms, TODO: Pull from backend once implemented
@@ -62,6 +73,14 @@ class MainUI(ctk.CTkFrame):
 
         self.rooms = ["Room 101", "Room 102", "Room 201", "Room 202"]
 
+    def handle_logout(self):
+        from UI.pages.events_page import show_events
+
+        self.user_id = None
+        self.is_admin = False
+        self.admin_access_btn.configure(state="disabled")
+        show_events(self)
+
 if __name__ == "__main__":
     ctk.set_appearance_mode("system")
 
@@ -80,8 +99,7 @@ if __name__ == "__main__":
         app.burger_menu_button.configure(state="normal")
         app.user_id = user_data.get("user_id")
         app.is_admin = user_data.get("admin", False)
-        if hasattr(app, "admin_button"):
-            app.admin_button.configure(state="normal" if app.is_admin else "disabled")
+        app.admin_access_btn.configure(state="normal" if app.is_admin else "disabled")
         show_events(app)
 
     def show_login():

@@ -55,12 +55,12 @@ def select_time_slot(app, caller, date, slot_text, room, start_time, end_time):
         row=1, column=1, padx=10, pady=5, sticky="w"
     )
 
-    previous_public_value = app.public_var.get() if hasattr(app, "public_var") else False
-    app.public_var = ctk.BooleanVar(value=previous_public_value)
+    previous_invite_only = app.invite_only_var.get() if hasattr(app, "invite_only_var") else True
+    app.invite_only_var = ctk.BooleanVar(value=previous_invite_only)
     ctk.CTkCheckBox(
         form_frame,
-        text="Make this a public event",
-        variable=app.public_var,
+        text="仅允许预订者邀请（隐藏在Available Events）",
+        variable=app.invite_only_var,
     ).grid(row=2, column=0, columnspan=2, pady=(5, 10))
 
     slot_summary = ctk.CTkLabel(
@@ -163,7 +163,7 @@ def submit_booking(app):
             "description": description,
             "start_time": pending["start_time"],
             "end_time": pending["end_time"],
-            "public": bool(app.public_var.get()),
+            "public": not bool(app.invite_only_var.get()),
         }
 
         response = requests.post("http://127.0.0.1:8000/bookings", json=payload)

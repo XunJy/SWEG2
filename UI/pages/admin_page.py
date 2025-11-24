@@ -25,6 +25,14 @@ def show_admin_dashboard(app):
         text="初始管理员账号/密码：Admin / Admin",
         text_color="#0078D7",
     ).pack(pady=(0, 10))
+    ctk.CTkButton(
+        dashboard,
+        text="Logout",
+        width=120,
+        fg_color="#cc3333",
+        hover_color="#990000",
+        command=lambda: app.handle_logout(),
+    ).pack(pady=(0, 10))
 
     room_frame = ctk.CTkFrame(dashboard, fg_color=dashboard.cget("fg_color"))
     room_frame.pack(fill="x", padx=10, pady=10)
