@@ -56,8 +56,8 @@ def show_events(app):
             ctk.CTkLabel(frame, text=details.get("name"), anchor="w", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
             ctk.CTkLabel(frame, text=details.get("description", ""), wraplength=450, justify="left", anchor="w").pack(anchor="w", padx=10)
 
-            row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
-            row.pack(fill="x", padx=10, pady=(0, 10))
+            info_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+            info_row.pack(fill="x", padx=10, pady=(5, 5))
 
             room_number = details.get("room_number") or details.get("room_id")
             room_building = details.get("room_building")
@@ -65,37 +65,44 @@ def show_events(app):
             if room_building:
                 room_display = f"{room_display} - {room_building}"
 
-            ctk.CTkLabel(row, text=f"Room: {room_display}", anchor="w").pack(side="left", padx=(0, 10))
-            ctk.CTkLabel(
-                row,
-                text=f"Time: {details.get('start_time')} - {details.get('end_time')}",
-                anchor="w",
-            ).pack(side="left", padx=(0, 10))
-
+            ctk.CTkLabel(info_row, text=f"Room: {room_display}", anchor="w").pack(anchor="w")
+            ctk.CTkLabel(info_row, text=f"Time: {details.get('start_time')} - {details.get('end_time')}", anchor="w").pack(anchor="w")
             if capacity:
-                ctk.CTkLabel(row, text=f"Attendees: {attendee_count}/{capacity}").pack(side="left", padx=(0, 10))
+                ctk.CTkLabel(info_row, text=f"Attendees: {attendee_count}/{capacity}", anchor="w").pack(anchor="w")
+
+            button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+            button_row.pack(fill="x", padx=10, pady=(0, 10))
 
             join_disabled = bool(capacity and attendee_count >= capacity)
-            join_label = "Full" if join_disabled else "Apply to Join"
-            ctk.CTkButton(
-                row,
-                text="View More",
-                width=100,
-                height=28,
-                fg_color="#0078D7",
-                hover_color="#005A9E",
-                command=lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"),
+            actions = [("View More", lambda id=details.get("booking_id"): view_event_details(app, id, caller="events"))]
+            if join_disabled:
+                actions.append(("Event Full", None))
+            else:
+                actions.append(("申请加入", lambda id=details.get("booking_id"): request_join(app, id)))
+
+            actions_var = ctk.StringVar(value="☰ Actions")
+
+            def handle_action(choice: str, actions=actions):
+                for label, fn in actions:
+                    if label == choice:
+                        if fn is None:
+                            toast = ctk.CTkToplevel(app)
+                            toast.geometry("320x140")
+                            ctk.CTkLabel(toast, text="This event is already full.").pack(pady=20)
+                            ctk.CTkButton(toast, text="OK", command=toast.destroy).pack(pady=8)
+                        else:
+                            fn()
+                        break
+                actions_var.set("☰ Actions")
+
+            ctk.CTkOptionMenu(
+                button_row,
+                variable=actions_var,
+                values=[label for label, _ in actions],
+                command=handle_action,
+                width=140,
+                anchor="w",
             ).pack(side="right")
-            ctk.CTkButton(
-                row,
-                text=join_label,
-                width=120,
-                height=28,
-                fg_color="#4a6fa5" if not join_disabled else "#8a8f94",
-                hover_color="#365781" if not join_disabled else "#8a8f94",
-                state="disabled" if join_disabled else "normal",
-                command=lambda id=details.get("booking_id"): request_join(app, id),
-            ).pack(side="right", padx=(0, 6))
 
         schedule_next()
 

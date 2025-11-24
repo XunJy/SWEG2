@@ -259,7 +259,14 @@ def show_join_requests(app, booking_id):
         ctk.CTkLabel(container, text="No pending requests.").pack(pady=12)
         return
 
-    def handle_request(request_id: str, decision: str):
+    def show_success(user_name: str):
+        toast = ctk.CTkToplevel(app)
+        toast.geometry("360x160")
+        toast.title("Request Approved")
+        ctk.CTkLabel(toast, text=f"已经成功邀请{user_name}").pack(pady=(24, 10))
+        ctk.CTkButton(toast, text="OK", width=100, command=toast.destroy).pack(pady=(0, 14))
+
+    def handle_request(request_id: str, decision: str, user_name: str | None = None):
         try:
             result = requests.put(
                 f"http://127.0.0.1:8000/join-requests/{request_id}/status",
@@ -269,6 +276,8 @@ def show_join_requests(app, booking_id):
             return
 
         if result.status_code == 200:
+            if decision == "accepted" and user_name:
+                show_success(user_name)
             requests_window.destroy()
             show_join_requests(app, booking_id)
 
@@ -289,7 +298,7 @@ def show_join_requests(app, booking_id):
             width=90,
             fg_color="#33cc33",
             hover_color="#00cc00",
-            command=lambda rid=item.get("request_id"): handle_request(rid, "accepted"),
+            command=lambda rid=item.get("request_id"), uname=full_name: handle_request(rid, "accepted", uname),
         ).pack(side="right", padx=4)
         ctk.CTkButton(
             actions,
@@ -297,5 +306,5 @@ def show_join_requests(app, booking_id):
             width=90,
             fg_color="#cc3333",
             hover_color="#990000",
-            command=lambda rid=item.get("request_id"): handle_request(rid, "declined"),
+            command=lambda rid=item.get("request_id"), uname=full_name: handle_request(rid, "declined", uname),
         ).pack(side="right", padx=4)
