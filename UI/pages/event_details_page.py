@@ -5,7 +5,7 @@ from UI.components.clear_contents import clear_contents
 
 
 @clear_contents
-def view_event_details(app, id, caller, booking_id=None, invite=None):
+def view_event_details(app, id, caller, booking_id=None, invite=None, booking_details=None):
     from UI.pages.events_page import show_events
     from UI.pages.invites_page import show_invites
 
@@ -21,23 +21,27 @@ def view_event_details(app, id, caller, booking_id=None, invite=None):
     invite_message = invite.get("message") if invite else None
     inviter_name = invite.get("inviter_name") if invite else None
 
+    booking_lookup_id = booking_id or id
+    from UI.pages.bookings_page import fetch_booking_details
+
     if caller == "events":
         back_button.configure(command=lambda: show_events(app))
-        booking = fetch_booking(booking_id or id)
+        booking = booking_details or fetch_booking_details(booking_lookup_id)
     elif caller == "invites":
         back_button.configure(command=lambda: show_invites(app))
-        booking = fetch_booking(booking_id)
+        booking = booking_details or fetch_booking_details(booking_lookup_id)
     elif caller == "bookings":
         from UI.pages.bookings_page import show_my_bookings
 
         back_button.configure(command=lambda: show_my_bookings(app))
-        booking = fetch_booking(id)
+        booking = booking_details or fetch_booking_details(booking_lookup_id)
     else:
         booking = None
     back_button.pack(padx=55, pady=(10, 10), anchor="w")
 
     attendees = get_booking_users(booking.get("booking_id") if booking else None) if booking else []
     capacity = booking.get("room_capacity") if booking else None
+    available_capacity = booking.get("available_capacity") if booking else None
     attendee_count = booking.get("attendee_count") or len(attendees)
 
     if booking is None:
@@ -59,6 +63,8 @@ def view_event_details(app, id, caller, booking_id=None, invite=None):
 
         if capacity:
             ctk.CTkLabel(app, text=f"Attendees: {attendee_count}/{capacity}").pack(pady=(0, 8))
+            if available_capacity is not None:
+                ctk.CTkLabel(app, text=f"Remaining Capacity: {available_capacity}").pack(pady=(0, 8))
         if attendees:
             attendee_list = ctk.CTkFrame(app)
             attendee_list.pack(fill="x", padx=12, pady=(0, 10))

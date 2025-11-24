@@ -242,60 +242,104 @@ def show_join_requests(app, booking_id):
     container = ctk.CTkScrollableFrame(requests_window, width=460, height=260)
     container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
-    try:
-        response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}/join-requests")
-    except requests.RequestException:
-        ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
-        return
+    refresh_job = {"id": None}
 
-    if response.status_code != 200:
-        ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
-        return
+    def cleanup():
+        if refresh_job["id"]:
+            requests_window.after_cancel(refresh_job["id"])
+        requests_window.destroy()
 
-    requests_payload = response.json()
-    pending_items = [r for r in requests_payload if r.get("status") == "pending"]
+    requests_window.protocol("WM_DELETE_WINDOW", cleanup)
 
-    if not pending_items:
-        ctk.CTkLabel(container, text="No pending requests.").pack(pady=12)
-        return
+    def schedule_refresh():
+        refresh_job["id"] = requests_window.after(5000, render_requests)
 
-    def handle_request(request_id: str, decision: str):
+    def render_requests():
+        if refresh_job["id"]:
+            requests_window.after_cancel(refresh_job["id"])
+            refresh_job["id"] = None
+
+        for widget in container.winfo_children():
+            widget.destroy()
+
         try:
-            result = requests.put(
-                f"http://127.0.0.1:8000/join-requests/{request_id}/status",
-                params={"new_status": decision},
-            )
+            response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}/join-requests")
         except requests.RequestException:
+            ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
+            schedule_refresh()
             return
 
-        if result.status_code == 200:
-            requests_window.destroy()
-            show_join_requests(app, booking_id)
+        if response.status_code != 200:
+            ctk.CTkLabel(container, text="Unable to load requests.").pack(pady=12)
+            schedule_refresh()
+            return
 
-    for item in pending_items:
-        frame = ctk.CTkFrame(container)
-        frame.pack(fill="x", padx=8, pady=6)
+        requests_payload = response.json()
+        pending_items = [r for r in requests_payload if r.get("status") == "pending"]
 
-        user = item.get("user", {})
-        full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get("email", "User")
-        ctk.CTkLabel(frame, text=full_name, anchor="w", font=("Arial", 13, "bold")).pack(anchor="w", padx=10, pady=(8, 0))
-        ctk.CTkLabel(frame, text=user.get("email", ""), anchor="w").pack(anchor="w", padx=10)
+        if not pending_items:
+            ctk.CTkLabel(container, text="No pending requests.").pack(pady=12)
+            schedule_refresh()
+            return
 
-        actions = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
-        actions.pack(fill="x", padx=10, pady=(4, 8))
-        ctk.CTkButton(
-            actions,
-            text="Accept",
-            width=90,
-            fg_color="#33cc33",
-            hover_color="#00cc00",
-            command=lambda rid=item.get("request_id"): handle_request(rid, "accepted"),
-        ).pack(side="right", padx=4)
-        ctk.CTkButton(
-            actions,
-            text="Decline",
-            width=90,
-            fg_color="#cc3333",
-            hover_color="#990000",
-            command=lambda rid=item.get("request_id"): handle_request(rid, "declined"),
-        ).pack(side="right", padx=4)
+        def handle_request(request_id: str, decision: str, user_info: dict | None = None):
+            try:
+                result = requests.put(
+                    f"http://127.0.0.1:8000/join-requests/{request_id}/status",
+                    params={"new_status": decision},
+                )
+            except requests.RequestException:
+                return
+
+            if result.status_code != 200:
+                return
+
+            if decision == "accepted" and user_info:
+                try:
+                    requests.post(
+                        "http://127.0.0.1:8000/user-bookings",
+                        json={"user_id": user_info.get("user_id"), "booking_id": booking_id, "organiser": False},
+                    )
+                except requests.RequestException:
+                    pass
+
+                toast = ctk.CTkToplevel(requests_window)
+                toast.geometry("320x140")
+                full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                display_name = full_name or user_info.get("email", "User")
+                ctk.CTkLabel(toast, text=f"{display_name} has joined your event.").pack(pady=20)
+                ctk.CTkButton(toast, text="OK", command=toast.destroy).pack(pady=8)
+
+            render_requests()
+
+        for item in pending_items:
+            frame = ctk.CTkFrame(container)
+            frame.pack(fill="x", padx=8, pady=6)
+
+            user = item.get("user", {})
+            full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get("email", "User")
+            ctk.CTkLabel(frame, text=full_name, anchor="w", font=("Arial", 13, "bold")).pack(anchor="w", padx=10, pady=(8, 0))
+            ctk.CTkLabel(frame, text=user.get("email", ""), anchor="w").pack(anchor="w", padx=10)
+
+            actions = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+            actions.pack(fill="x", padx=10, pady=(4, 8))
+            ctk.CTkButton(
+                actions,
+                text="Accept",
+                width=90,
+                fg_color="#33cc33",
+                hover_color="#00cc00",
+                command=lambda rid=item.get("request_id"), u=user: handle_request(rid, "accepted", u),
+            ).pack(side="right", padx=4)
+            ctk.CTkButton(
+                actions,
+                text="Decline",
+                width=90,
+                fg_color="#cc3333",
+                hover_color="#990000",
+                command=lambda rid=item.get("request_id"), u=user: handle_request(rid, "declined", u),
+            ).pack(side="right", padx=4)
+
+        schedule_refresh()
+
+    render_requests()
