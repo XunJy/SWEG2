@@ -106,43 +106,43 @@ def invite_users(app, booking_id):
     invite_window.grab_set()
 
     ctk.CTkLabel(invite_window, text="Create an Invite", font=("Arial", 16, "bold")).pack(pady=(12, 4))
-    ctk.CTkLabel(invite_window, text="Enter the user's name and email, then add a message to send the invite.").pack(pady=(0, 10))
+    ctk.CTkLabel(invite_window, text="Enter the user's email, then add a message to send the invite.").pack(pady=(0, 10))
 
     form = ctk.CTkFrame(invite_window)
     form.pack(fill="both", expand=True, padx=16, pady=8)
 
-    name_var = ctk.StringVar()
     email_var = ctk.StringVar()
     status_var = ctk.StringVar(value="")
     selected_user = {"user_id": None, "name": None}
 
-    ctk.CTkLabel(form, text="User Name").grid(row=0, column=0, sticky="w", padx=8, pady=(10, 5))
-    name_entry = ctk.CTkEntry(form, textvariable=name_var, width=260)
-    name_entry.grid(row=0, column=1, sticky="we", padx=8, pady=(10, 5))
-
-    ctk.CTkLabel(form, text="User Email").grid(row=1, column=0, sticky="w", padx=8, pady=5)
+    ctk.CTkLabel(form, text="User Email").grid(row=0, column=0, sticky="w", padx=8, pady=5)
     email_entry = ctk.CTkEntry(form, textvariable=email_var, width=260)
-    email_entry.grid(row=1, column=1, sticky="we", padx=8, pady=5)
+    email_entry.grid(row=0, column=1, sticky="we", padx=8, pady=5)
 
     status_label = ctk.CTkLabel(form, textvariable=status_var, text_color="gray")
-    status_label.grid(row=1, column=2, sticky="w", padx=4)
+    status_label.grid(row=0, column=2, sticky="w", padx=4)
 
-    ctk.CTkLabel(form, text="Invite Message").grid(row=2, column=0, sticky="nw", padx=8, pady=(10, 5))
+    ctk.CTkLabel(form, text="Invite Message").grid(row=1, column=0, sticky="nw", padx=8, pady=(10, 5))
     message_box = ctk.CTkTextbox(form, width=260, height=100)
-    message_box.grid(row=2, column=1, columnspan=2, sticky="we", padx=8, pady=(10, 5))
+    message_box.grid(row=1, column=1, columnspan=2, sticky="we", padx=8, pady=(10, 5))
 
     form.grid_columnconfigure(1, weight=1)
+
+    default_border_color = email_entry.cget("border_color") or "#565b5e"
+    pending_check = {"job": None}
+
+    def reset_selection():
+        selected_user.update({"user_id": None, "name": None})
+        email_entry.configure(border_color=default_border_color)
 
     def verify_user():
         status_var.set("")
         status_label.configure(text_color="gray")
-        selected_user.update({"user_id": None, "name": None})
-        email = email_var.get().strip()
-        name = name_var.get().strip()
+        reset_selection()
 
-        if not email or not name:
-            status_var.set("Please provide both name and email.")
-            status_label.configure(text_color="#cc3333")
+        email = email_var.get().strip()
+        if not email:
+            send_button.configure(state="disabled")
             return
 
         try:
@@ -150,28 +150,36 @@ def invite_users(app, booking_id):
         except requests.RequestException:
             status_var.set("Unable to reach the server. Try again.")
             status_label.configure(text_color="#cc3333")
+            email_entry.configure(border_color="#cc3333")
+            send_button.configure(state="disabled")
             return
 
         if response.status_code != 200:
             status_var.set("User not found. Check the email.")
             status_label.configure(text_color="#cc3333")
+            email_entry.configure(border_color="#cc3333")
+            send_button.configure(state="disabled")
             return
 
         user = response.json()
         full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
-        if full_name.lower() != name.lower():
-            status_var.set(f"Found account: {full_name}. Update the name to confirm.")
-            status_label.configure(text_color="#cc3333")
-            return
 
-        selected_user.update({"user_id": user.get("user_id"), "name": full_name})
-        status_var.set(f"Selected user: {full_name}")
+        selected_user.update({"user_id": user.get("user_id"), "name": full_name or "User"})
+        status_var.set(f"✅ {full_name or 'User'}")
         status_label.configure(text_color="#2fa572")
+        email_entry.configure(border_color="#2fa572")
+        send_button.configure(state="normal")
+
+    def schedule_verify(*_args):
+        if pending_check["job"]:
+            invite_window.after_cancel(pending_check["job"])
+        pending_check["job"] = invite_window.after(350, verify_user)
 
     def send_invite():
         if not selected_user.get("user_id"):
-            status_var.set("Please verify the user before sending.")
+            status_var.set("Please enter a valid user email before sending.")
             status_label.configure(text_color="#cc3333")
+            email_entry.configure(border_color="#cc3333")
             return
 
         message = message_box.get("1.0", "end").strip()
@@ -201,5 +209,7 @@ def invite_users(app, booking_id):
     button_row = ctk.CTkFrame(invite_window)
     button_row.pack(fill="x", padx=16, pady=(0, 12))
 
-    ctk.CTkButton(button_row, text="Verify User", width=110, command=verify_user).pack(side="left", padx=6, pady=6)
-    ctk.CTkButton(button_row, text="Send Invite", width=110, command=send_invite).pack(side="right", padx=6, pady=6)
+    send_button = ctk.CTkButton(button_row, text="Send Invite", width=110, command=send_invite, state="disabled")
+    send_button.pack(side="right", padx=6, pady=6)
+
+    email_var.trace_add("write", schedule_verify)
