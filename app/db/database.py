@@ -18,6 +18,7 @@ def get_db_connection():
         conn.commit() # Commit changes automatically after block ends
     except sqlite3.Error as DBInitError:
         print("Error in connecting to DB: ", DBInitError)
+        raise
     finally:
         conn.close()
 

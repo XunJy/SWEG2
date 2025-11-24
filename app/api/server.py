@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from app.models.user import *
 from pydantic import BaseModel
 
+from app.db.database import init_db
 from app.models.booking import *
 from app.models.booking_schema import *
 from app.models.room import *
@@ -11,6 +12,9 @@ from app.models.invite import *
 from app.models.user_booking import *
 
 app = FastAPI()
+
+# Ensure the database schema is up to date (e.g., invite columns) before serving requests
+init_db()
 
 # -------------------------
 # Root
