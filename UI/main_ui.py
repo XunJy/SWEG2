@@ -17,6 +17,7 @@ class MainUI(ctk.CTkFrame):
         self.is_admin = False
         self.sidebar_visible = False
         self.logout_callback = lambda: None
+        self.refresh_job = None
 
         self.burger_menu_button = ctk.CTkButton(
             self,
@@ -109,6 +110,12 @@ if __name__ == "__main__":
             from UI.components.sidebar_functions import hide_sidebar
 
             hide_sidebar(app)
+        if app.refresh_job:
+            try:
+                app.after_cancel(app.refresh_job)
+            except Exception:
+                pass
+            app.refresh_job = None
         app.user_id = None
         app.is_admin = False
         app.burger_menu_button.configure(state="disabled")

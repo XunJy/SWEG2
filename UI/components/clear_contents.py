@@ -3,6 +3,12 @@ from UI.components.sidebar_functions import hide_sidebar
 
 def clear_contents(func):
     def wrapper(app, *args, **kwargs):
+        if getattr(app, "refresh_job", None):
+            try:
+                app.after_cancel(app.refresh_job)
+            except Exception:
+                pass
+            app.refresh_job = None
         if app.sidebar_visible:
             hide_sidebar(app)
         for widget in app.winfo_children():

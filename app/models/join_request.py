@@ -1,4 +1,5 @@
 from uuid import uuid4
+
 from pydantic import BaseModel
 
 from app.db.database import get_db_connection
