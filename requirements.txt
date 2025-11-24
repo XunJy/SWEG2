@@ -1,8 +1,10 @@
+bcrypt
+fastapi
+pillow
+requests
+uvicorn
+pytest
+typer
 customtkinter
 tkcalendar
 tktimepicker
-uvicorn
-fastapi
-bcrypt
-pillow
-requests
