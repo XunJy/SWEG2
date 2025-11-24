@@ -1,0 +1,8 @@
+customtkinter
+tkcalendar
+tktimepicker
+uvicorn
+fastapi
+bcrypt
+pillow
+requests

@@ -1,0 +1,33 @@
+[2025-11-21 10:15:44] system | Action: Created booking be1da5f7-3cfe-49d6-9ed9-e9f92b9f5a4e in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:42:20] system | Action: Created booking c17d1158-2507-4a21-922f-f1e4a2538fd1 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:42:57] system | Action: Created booking 2d223d74-4b02-4f36-8612-3d662fdab8a7 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:46:48] system | Action: Created booking b9150121-63f3-4e60-ab75-12c90720c48b in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:52:05] system | Action: Created booking 3918c8d9-be95-4d7d-9e88-695bef51039c in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:52:51] system | Action: Created booking 08d5be5d-bc2e-472c-9a44-dfbea97eb750 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:53:46] system | Action: Created booking 1e3212fe-7c5d-40be-baad-b56bc5c9bd53 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:54:16] system | Action: Created booking 8eb41f22-d725-4350-b673-34337d000818 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 10:56:13] system | Action: Created booking ad8602a0-767b-44cd-985c-1cb48abfb096 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 11:00:09] system | Action: Created booking e18cadfd-2629-41d7-9f70-ce41735b77c6 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 11:02:14] system | Action: Created booking aa2317c9-d111-490a-8852-d1750e1f1212 in room room_1 from 2025-03-01 10:00:00 to 2025-03-01 11:00:00
+[2025-11-21 11:15:28] system | Action: Created booking 67c6b1e3-035b-4f3e-8d4b-662a80369b1f in room room_1 from 2025-03-01 14:00:00 to 2025-03-01 15:00:00
+[2025-11-21 11:21:49] system | Action: Created booking 83f8c7a0-7d25-4f10-b178-4e3f0eb048dc in room room_1 from 2025-03-01 14:00:00 to 2025-03-01 15:00:00
+[2025-11-21 11:38:46] system | Action: Deleted booking 83f8c7a0-7d25-4f10-b178-4e3f0eb048dc
+[2025-11-21 11:59:23] system | Action: Created booking 06983b1f-d7cf-49e9-965b-3526c1e11f26 in room room_1 from 2025-03-01 14:00:00 to 2025-03-01 15:00:00
+[2025-11-21 12:03:16] system | Action: Created booking 854eb309-2e0a-444c-9e24-e49765dece02 in room room_1 from 2025-03-02 09:30:00 to 2025-03-02 10:30:00
+[2025-11-21 12:03:29] system | Action: Created booking f160febf-5614-4180-95c5-c3c2118b8b8b in room room_1 from 2025-03-02 14:00:00 to 2025-03-02 15:00:00
+[2025-11-21 15:06:31] system | Action: Deleted booking f160febf-5614-4180-95c5-c3c2118b8b8b
+[2025-11-21 15:06:36] system | Action: Deleted booking 854eb309-2e0a-444c-9e24-e49765dece02
+[2025-11-21 15:06:45] system | Action: Deleted booking 06983b1f-d7cf-49e9-965b-3526c1e11f26
+[2025-11-22 15:54:06] system | Action: Created booking 730a4f41-8f64-451c-a1d2-ac716be22ed3 in room RM101 from 2025-11-22 14:00:00 to 2025-11-22 15:30:00
+[2025-11-22 17:17:09] 53f1c747-2be7-4e56-b037-973da8e6fdfc | Action: Created room 13534729-8fa9-448e-8859-b810ff6500a8 (33, Jack Cole Building, capacity 30)
+[2025-11-22 17:20:27] system | Action: Created booking da171e57-ced4-42a3-a969-8c2e7431299a in room 13534729-8fa9-448e-8859-b810ff6500a8 from 2025-11-22 17:00:00 to 2025-11-22 18:30:00
+[2025-11-22 23:38:30] system | Action: Created booking 99a1b2ef-1b91-488b-a2a0-1b986405d2d7 in room 13534729-8fa9-448e-8859-b810ff6500a8 from 2025-11-22 14:00:00 to 2025-11-22 15:00:00
+[2025-11-22 23:39:19] system | Action: Created booking d4b61d85-051b-470c-ab22-606578cce0f6 in room 13534729-8fa9-448e-8859-b810ff6500a8 from 2025-11-22 15:00:00 to 2025-11-22 15:30:00
+[2025-11-23 13:21:15] system | Action: Created False booking d5a44184-50fd-4c47-8364-295b1a8c3653 in room room_1 from 2025-11-22 14:00:00 to 2025-11-22 15:00:00
+[2025-11-23 13:26:58] 078993fa-a38c-49a0-a860-36b985a95b43 | Action: Created room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 (room_1, The Rule, capacity 50)
+[2025-11-23 13:28:23] system | Action: Created False booking 3b069efb-0104-426b-8f8e-fa7a853131b4 in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-23 13:30:00 to 2025-11-23 15:00:00
+[2025-11-23 16:16:58] system | Action: Created private booking dc2da023-5915-4f36-9b77-6d3b63990e6d in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-23 17:00:00 to 2025-11-23 18:00:00
+[2025-11-23 16:20:05] system | Action: Created public booking f5e9c491-3397-4d38-85f5-00ef73386b80 in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-23 16:00:00 to 2025-11-23 17:00:00
+[2025-11-23 16:48:21] 57574411-dd2d-4f7c-b83c-ee5ed9336eb7 | Action: Created invite 68e8c302-34d6-4e24-9000-97bf887409b6 for booking f5e9c491-3397-4d38-85f5-00ef73386b80
+[2025-11-23 17:01:27] system | Action: Updated invite 68e8c302-34d6-4e24-9000-97bf887409b6 status to accepted
+[2025-11-23 17:07:02] system | Action: Created public booking b61096b8-8b29-4c31-bb02-1079ff1d526f in room 4e5b9187-bf62-4e69-8119-3e4ca2bc25d1 from 2025-11-23 22:00:00 to 2025-11-24 02:00:00
