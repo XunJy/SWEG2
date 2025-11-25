@@ -10,7 +10,21 @@ def show_events(app):
 
     events_frame = ctk.CTkScrollableFrame(app, width=450, height=400)
     events_frame.place(relx=0.5, rely=0.5, anchor="center")
-    ctk.CTkLabel(app, text="Available Events", font=("Arial", 18, "bold")).pack(pady=20)
+    header = ctk.CTkFrame(app, fg_color=app.cget("fg_color"))
+    header.pack(fill="x", pady=10)
+
+    ctk.CTkLabel(header, text="Available Events", font=("Arial", 18, "bold"), anchor="w").pack(
+        side="left", padx=(20, 10), pady=(10, 0)
+    )
+    ctk.CTkButton(
+        header,
+        text="Refresh",
+        width=90,
+        height=28,
+        fg_color="#6b6b6b",
+        hover_color="#4a4a4a",
+        command=lambda: show_events(app),
+    ).pack(side="right", padx=(0, 20), pady=(10, 0))
 
     if not getattr(app, "user_id", None):
         ctk.CTkLabel(events_frame, text="Please log in to view available events.").pack(pady=20)
@@ -53,6 +67,15 @@ def show_events(app):
         ).pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             row,
+            text="Apply",
+            width=90,
+            height=28,
+            fg_color="#33cc33",
+            hover_color="#00cc00",
+            command=lambda id=details.get("booking_id"): apply_for_event(app, id),
+        ).pack(side="right", padx=(5, 0))
+        ctk.CTkButton(
+            row,
             text="View More",
             width=100,
             height=28,
@@ -68,7 +91,21 @@ def show_my_events(app):
 
     events_frame = ctk.CTkScrollableFrame(app, width=450, height=400)
     events_frame.place(relx=0.5, rely=0.5, anchor="center")
-    ctk.CTkLabel(app, text="My Events", font=("Arial", 18, "bold")).pack(pady=20)
+    header = ctk.CTkFrame(app, fg_color=app.cget("fg_color"))
+    header.pack(fill="x", pady=10)
+
+    ctk.CTkLabel(header, text="My Events", font=("Arial", 18, "bold"), anchor="w").pack(
+        side="left", padx=(20, 10), pady=(10, 0)
+    )
+    ctk.CTkButton(
+        header,
+        text="Refresh",
+        width=90,
+        height=28,
+        fg_color="#6b6b6b",
+        hover_color="#4a4a4a",
+        command=lambda: show_my_events(app),
+    ).pack(side="right", padx=(0, 20), pady=(10, 0))
 
     if not getattr(app, "user_id", None):
         ctk.CTkLabel(events_frame, text="Please log in to view your events.").pack(pady=20)
@@ -119,6 +156,49 @@ def show_my_events(app):
 
 def fetch_booking_details(booking_id):
     response = requests.get(f"http://127.0.0.1:8000/bookings/{booking_id}")
+    if response.status_code != 200:
+        return {"booking_id": booking_id}
+
+    booking = response.json()
+    room_id = booking.get("room_id")
+
+    if room_id:
+        room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
+        if room_response.status_code == 200:
+            room = room_response.json()
+            booking["room_number"] = room.get("number")
+            booking["room_building"] = room.get("building")
+
+    return booking
+
+
+def apply_for_event(app, booking_id):
+    response = requests.post(
+        "http://127.0.0.1:8000/user-bookings",
+        json={"user_id": app.user_id, "booking_id": booking_id, "organiser": False},
+    )
+
+    status_screen = ctk.CTkToplevel(app)
+    status_screen.geometry("320x170")
+    status_screen.title("University Room Booking System - Apply to Event")
+
     if response.status_code == 200:
-        return response.json()
-    return {"booking_id": booking_id}
+        message = "Successfully applied to the event."
+        ctk.CTkLabel(status_screen, text=message).pack(pady=20)
+    else:
+        detail = response.json().get("detail", "Failed to apply to the event")
+        ctk.CTkLabel(status_screen, text=f"Error: {detail}").pack(pady=20)
+
+    ctk.CTkButton(
+        status_screen,
+        text="OK",
+        command=lambda: close_apply_screen(app, status_screen),
+    ).pack(pady=20)
+    status_screen.focus_force()
+    status_screen.attributes("-topmost", True)
+    status_screen.after(1000, lambda: status_screen.attributes("-topmost", False))
+
+
+def close_apply_screen(app, screen):
+    screen.destroy()
+    show_events(app)
