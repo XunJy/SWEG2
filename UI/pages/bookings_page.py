@@ -47,6 +47,9 @@ def show_my_bookings(app):
                 end_time = details.get("end_time")
                 room_number = details.get("room_number") or details.get("room_id")
                 room_building = details.get("room_building")
+                capacity = details.get("room_capacity")
+                attendee_count = details.get("attendee_count") or 0
+                remaining = capacity - attendee_count if capacity is not None else None
                 room_display = f"Room {room_number}" if room_number else "Room"
                 if room_building:
                     room_display = f"{room_display} - {room_building}"
@@ -61,6 +64,12 @@ def show_my_bookings(app):
                 info_row.pack(fill="x", padx=10, pady=(5, 5))
                 ctk.CTkLabel(info_row, text=f"Room: {room_display}", anchor="w").pack(anchor="w")
                 ctk.CTkLabel(info_row, text=f"Time: {start_time} - {end_time}", anchor="w").pack(anchor="w")
+                if remaining is not None:
+                    ctk.CTkLabel(
+                        info_row,
+                        text=f"Capacity remaining: {remaining} of {capacity}",
+                        anchor="w",
+                    ).pack(anchor="w")
 
                 button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
                 button_row.pack(fill="x", padx=10, pady=(0, 10))
@@ -90,6 +99,7 @@ def show_my_bookings(app):
                     fg_color="#6b6b6b",
                     hover_color="#4a4a4a",
                     command=lambda id=booking_id: invite_users(app, id),
+                    state=("disabled" if remaining is not None and remaining <= 0 else "normal"),
                 ).pack(side="right", padx=5)
 
         app.bookings_refresh_job = app.after(3000, refresh_bookings)
@@ -104,6 +114,8 @@ def fetch_booking_details(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    if booking.get("attendee_count") is None:
+        booking["attendee_count"] = 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -111,6 +123,7 @@ def fetch_booking_details(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+            booking.setdefault("room_capacity", room.get("capacity"))
 
     return booking
 

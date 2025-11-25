@@ -64,9 +64,24 @@ def show_events(app):
         if not events:
             ctk.CTkLabel(events_frame, text="No public events available right now.").pack(pady=20)
         else:
+            visible_events = []
             for event in events:
                 booking_id = event.get("booking_id")
                 details = fetch_booking_details(booking_id)
+
+                capacity = details.get("room_capacity")
+                attendee_count = details.get("attendee_count") or 0
+                if capacity is not None and attendee_count >= capacity:
+                    continue
+
+                visible_events.append(details)
+
+            if not visible_events:
+                ctk.CTkLabel(events_frame, text="No public events available right now.").pack(pady=20)
+                return
+
+            for details in visible_events:
+                booking_id = details.get("booking_id")
 
                 name = details.get("name")
                 description = details.get("description") or ""
@@ -74,6 +89,9 @@ def show_events(app):
                 end_time = details.get("end_time")
                 room_number = details.get("room_number") or details.get("room_id")
                 room_building = details.get("room_building")
+                capacity = details.get("room_capacity")
+                attendee_count = details.get("attendee_count") or 0
+                remaining = capacity - attendee_count if capacity is not None else None
                 room_display = f"Room {room_number}" if room_number else "Room"
                 if room_building:
                     room_display = f"{room_display} - {room_building}"
@@ -94,6 +112,12 @@ def show_events(app):
                 ctk.CTkLabel(
                     info_row, text=f"Time: {start_time} - {end_time}", anchor="w"
                 ).pack(anchor="w")
+                if remaining is not None:
+                    ctk.CTkLabel(
+                        info_row,
+                        text=f"Capacity remaining: {remaining} of {capacity}",
+                        anchor="w",
+                    ).pack(anchor="w")
 
                 button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
                 button_row.pack(fill="x", padx=10, pady=(0, 10))
@@ -214,6 +238,8 @@ def fetch_booking_details(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    if booking.get("attendee_count") is None:
+        booking["attendee_count"] = 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -221,5 +247,6 @@ def fetch_booking_details(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+            booking.setdefault("room_capacity", room.get("capacity"))
 
     return booking

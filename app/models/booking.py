@@ -103,14 +103,22 @@ def create_booking(room_id, start_time, end_time, name, description=None, public
 def get_public_bookings(user_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT *
+        cursor.execute(
+            """
+            SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
+                   r.number, r.building, r.capacity, COUNT(ub.user_id) AS attendee_count
             FROM booking b
+            JOIN room r ON b.room_id = r.room_id
+            LEFT JOIN user_booking ub ON b.booking_id = ub.booking_id
             WHERE b.public = 1
-            AND b.booking_id NOT IN (
-                SELECT booking_id FROM user_booking WHERE user_id = ?
-            )
-        """, (user_id,))
+              AND b.booking_id NOT IN (
+                  SELECT booking_id FROM user_booking WHERE user_id = ?
+              )
+            GROUP BY b.booking_id
+            HAVING attendee_count < r.capacity
+        """,
+            (user_id,),
+        )
         rows = cursor.fetchall()
 
     return [
@@ -121,7 +129,11 @@ def get_public_bookings(user_id):
             "end_time": row[3],
             "name": row[4],
             "description": row[5],
-            "public": bool(row[6])
+            "public": bool(row[6]),
+            "room_number": row[7],
+            "room_building": row[8],
+            "room_capacity": row[9],
+            "attendee_count": row[10],
         }
         for row in rows
     ]
@@ -130,13 +142,18 @@ def get_public_bookings(user_id):
 def read_booking(booking_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT b.booking_id, b.room_id, b.start_time, b.end_time, b.name, b.description, b.public,
-                   r.number, r.building, r.capacity
+                   r.number, r.building, r.capacity, COUNT(ub.user_id) AS attendee_count
             FROM booking b
             JOIN room r ON b.room_id = r.room_id
+            LEFT JOIN user_booking ub ON b.booking_id = ub.booking_id
             WHERE b.booking_id = ?
-        """, (booking_id,))
+            GROUP BY b.booking_id
+        """,
+            (booking_id,),
+        )
         row = cursor.fetchone()
 
     if row is None:
@@ -153,6 +170,7 @@ def read_booking(booking_id):
         "room_number": row[7],
         "room_building": row[8],
         "room_capacity": row[9],
+        "attendee_count": row[10],
     }
 
 

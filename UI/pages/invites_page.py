@@ -11,6 +11,8 @@ def fetch_booking_details(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    if booking.get("attendee_count") is None:
+        booking["attendee_count"] = 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -18,6 +20,7 @@ def fetch_booking_details(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+            booking.setdefault("room_capacity", room.get("capacity"))
 
     return booking
 
