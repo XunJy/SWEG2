@@ -56,7 +56,7 @@ def show_invites(app):
             height=28,
             fg_color="#33cc33",
             hover_color="#00cc00",
-            command=lambda id=invite_id: accept_invite(app, id)
+            command=lambda id=invite_id, booking=invite.get('booking_id'): accept_invite(app, id, booking)
         ).pack(side="right", padx=5)
 
         ctk.CTkButton(
