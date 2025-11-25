@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from app.models.user import *
 from pydantic import BaseModel
 
@@ -9,8 +9,21 @@ from app.models.room import *
 from app.models.room_schema import *
 from app.models.invite import *
 from app.models.user_booking import *
+from app.db.database import init_db
 
 app = FastAPI()
+
+
+def get_current_user(x_user_id: str = Header(..., alias="X-User-Id")):
+    user = read_user_by_id(x_user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or missing user")
+    return user
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 # -------------------------
 # Root
@@ -153,15 +166,15 @@ def api_delete_user(user_id: str, password: str):
 
 # GET: All public bookings (available events)
 @app.get("/bookings/public", response_model=List[BookingResponse])
-def api_get_public_bookings(user_id: str):
+def api_get_public_bookings(current_user: dict = Depends(get_current_user)):
     try:
-        return get_public_bookings(user_id)
+        return get_public_bookings(current_user["user_id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # POST: Create a booking
 @app.post("/bookings", response_model=BookingResponse)
-def api_create_booking(data: BookingCreate):
+def api_create_booking(data: BookingCreate, current_user: dict = Depends(get_current_user)):
     try:
         booking_data = create_booking(
             data.room_id,
@@ -169,8 +182,10 @@ def api_create_booking(data: BookingCreate):
             str(data.end_time),
             data.name,
             data.description,
-            data.public
+            data.public,
+            current_user["user_id"],
         )
+        create_user_booking(current_user["user_id"], booking_data["booking_id"], True)
         return BookingResponse(**booking_data)
     except ValueError as e:
         print("Error:", e)
@@ -188,9 +203,9 @@ def api_get_booking(booking_id: str):
     
 # DELETE: Delete a booking by ID
 @app.delete("/bookings/{booking_id}", response_model=MessageResponse)
-def api_delete_booking(booking_id: str):
+def api_delete_booking(booking_id: str, current_user: dict = Depends(get_current_user)):
     try:
-        success = delete_booking(booking_id)
+        success = delete_booking(booking_id, current_user["user_id"])
         if success:
             return MessageResponse(message="Booking deleted successfully")
     except Exception as e:
@@ -199,7 +214,10 @@ def api_delete_booking(booking_id: str):
 
 # GET: Read a booking by user ID
 @app.get("/bookings/user/{user_id}", response_model=List[BookingResponse])
-def api_get_bookings_by_user(user_id: str):
+def api_get_bookings_by_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     return read_bookings_by_user(user_id)
 
 # GET: All bookings
@@ -216,7 +234,7 @@ def api_get_all_bookings():
 # -------------------------
 # Create Invite
 @app.post("/invites", response_model=Invite)
-def api_create_invite(invite: InviteCreate):
+def api_create_invite(invite: InviteCreate, current_user: dict = Depends(get_current_user)):
     # Look up user by email
     user = read_user_by_email(invite.user_email)
     if not user:
@@ -236,7 +254,10 @@ def api_create_invite(invite: InviteCreate):
 
 # Get pending Invites for a specific User
 @app.get("/users/{user_id}/invites", response_model=list[Invite])
-def api_get_invites_by_user(user_id: str):
+def api_get_invites_by_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     invites = get_invites_by_user(user_id)
 
     # Filter for pending invites
@@ -246,7 +267,7 @@ def api_get_invites_by_user(user_id: str):
 
 # Accept Invite (Invite ID)
 @app.put("/invites/{invite_id}/status/accept", response_model=MessageResponse)
-def api_update_invite_status_accept(invite_id: str, new_status: str = "accepted"):
+def api_update_invite_status_accept(invite_id: str, new_status: str = "accepted", current_user: dict = Depends(get_current_user)):
     updated = update_invite_status(invite_id, new_status)
     if updated:
         return MessageResponse(message=f"Invite {invite_id} status updated to {new_status}")
@@ -255,7 +276,7 @@ def api_update_invite_status_accept(invite_id: str, new_status: str = "accepted"
 
 # Decline Invite (Invite ID)
 @app.put("/invites/{invite_id}/status/decline", response_model=MessageResponse)
-def api_update_invite_status_decline(invite_id: str, new_status: str = "declined"):
+def api_update_invite_status_decline(invite_id: str, new_status: str = "declined", current_user: dict = Depends(get_current_user)):
     updated = update_invite_status(invite_id, new_status)
     if updated:
         return MessageResponse(message=f"Invite {invite_id} status updated to {new_status}")
@@ -266,12 +287,14 @@ def api_update_invite_status_decline(invite_id: str, new_status: str = "declined
 # -------------------------
 
 # CREATE - link users to bookings
-    #run this after accpeting an invite to add the user as a participant to the booking
+# run this after accpeting an invite to add the user as a participant to the booking
 @app.post("/user-bookings", response_model=MessageResponse)
-def api_create_user_booking(data: UserBookingCreate):
+def api_create_user_booking(data: UserBookingCreate, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != data.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     try:
         create_user_booking(data.user_id, data.booking_id, data.organiser)
-            #organiser defaults to False in the sqlite function if not provided
         return MessageResponse(message="User booking created successfully")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create user booking: {str(e)}")
@@ -284,13 +307,19 @@ def api_get_users_for_booking(booking_id: str):
 
 # READ: get bookings for a user
 @app.get("/users/{user_id}/bookings", response_model=List[BookingInfo])
-def api_get_bookings_for_user(user_id: str):
+def api_get_bookings_for_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     bookings = get_bookings_for_user(user_id)
     return [BookingInfo(booking_id=booking_id, organiser=organiser) for booking_id, organiser in bookings]
 
 # UPDATE: organiser status
 @app.put("/user-bookings/{user_id}/{booking_id}", response_model=MessageResponse)
-def api_update_booking_admin(user_id: str, booking_id: str, data: UserBookingUpdate):
+def api_update_booking_admin(user_id: str, booking_id: str, data: UserBookingUpdate, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     try:
         update_user_booking(user_id, booking_id, data.organiser)
         return MessageResponse(message="User booking updated successfully")
@@ -299,7 +328,10 @@ def api_update_booking_admin(user_id: str, booking_id: str, data: UserBookingUpd
 
 # DELETE: remove user from booking
 @app.delete("/user-bookings/{user_id}/{booking_id}", response_model=MessageResponse)
-def api_delete_user_booking(user_id: str, booking_id: str):
+def api_delete_user_booking(user_id: str, booking_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     try:
         delete_user_booking(user_id, booking_id)
         return MessageResponse(message="User booking deleted successfully")
@@ -312,9 +344,9 @@ def api_delete_user_booking(user_id: str, booking_id: str):
 
 # POST: Create a room
 @app.post("/rooms", response_model=RoomResponse)
-def api_create_room(data: RoomCreate, user_id: str):
+def api_create_room(data: RoomCreate, current_user: dict = Depends(get_current_user)):
     try:
-        room_id = create_room(user_id, data.number, data.building, data.capacity)
+        room_id = create_room(current_user["user_id"], data.number, data.building, data.capacity)
         room_data = read_room(room_id)
         return RoomResponse(room_id=room_data[0], number=room_data[1], building=room_data[2], capacity=room_data[3])
     except PermissionError as e:
@@ -385,9 +417,9 @@ def api_get_room(room_id: str):
 
 # PUT: Update a room
 @app.put("/rooms/{room_id}", response_model=MessageResponse)
-def api_update_room(room_id: str, data: RoomUpdate, user_id: str):
+def api_update_room(room_id: str, data: RoomUpdate, current_user: dict = Depends(get_current_user)):
     try:
-        update_room(user_id, room_id, data.number, data.building, data.capacity)
+        update_room(current_user["user_id"], room_id, data.number, data.building, data.capacity)
         return MessageResponse(message="Room updated successfully")
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -398,9 +430,9 @@ def api_update_room(room_id: str, data: RoomUpdate, user_id: str):
 
 # DELETE: Delete a room
 @app.delete("/rooms/{room_id}", response_model=MessageResponse)
-def api_delete_room(room_id: str, user_id: str):
+def api_delete_room(room_id: str, current_user: dict = Depends(get_current_user)):
     try:
-        delete_room(user_id, room_id)
+        delete_room(current_user["user_id"], room_id)
         return MessageResponse(message="Room deleted successfully")
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))

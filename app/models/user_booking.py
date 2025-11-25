@@ -18,7 +18,6 @@ class UserBookingUpdate(BaseModel):
 #-------------------------
 # USER-BOOKING CRUD
 #-------------------------
-DB_PATH = 'database.db' 
 # CREATE
 
 def create_user_booking(user_id, booking_id, organiser=False):
@@ -31,8 +30,10 @@ def create_user_booking(user_id, booking_id, organiser=False):
                 VALUES (?, ?, ?)
             """, (user_id, booking_id, int(organiser)))
 
-        log_action("CREATE_USER_BOOKING",
-                    f"User {user_id} linked to booking {booking_id} (organiser={organiser})")
+        log_action(
+            user_id,
+            f"User {user_id} linked to booking {booking_id} (organiser={organiser})",
+        )
 
 
 # READ
@@ -105,21 +106,22 @@ def update_user_booking(user_id, booking_id, organiser):
 # DELETE
 def delete_user_booking(user_id, booking_id):
     """Delete a user–booking link, change invtie status to declined """
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        
+
         cursor.execute("""
                 DELETE FROM user_booking
                 WHERE user_id = ? AND booking_id = ?
             """, (user_id, booking_id))
-            
-        update_invite_status(
-                user_id, 
-                booking_id, 
-                'declined'
-            )
+        cursor.execute(
+            "SELECT invite_id FROM invite WHERE user_id = ? AND booking_id = ?",
+            (user_id, booking_id),
+        )
+        invite_row = cursor.fetchone()
+        if invite_row:
+            update_invite_status(invite_row[0], "declined")
         log_action(
-                user_id,  
-                f"Left booking {booking_id}"  
+                user_id,
+                f"Left booking {booking_id}"
             )

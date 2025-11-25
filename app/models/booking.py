@@ -1,7 +1,7 @@
-from app.logs import log_action
 from datetime import datetime, timedelta
 from uuid import uuid4
-from app.db.database import get_db_connection, DB_PATH
+from app.db.database import get_db_connection
+from app.logs import log_action
 
 
 def parse_datetime(value: str) -> datetime:

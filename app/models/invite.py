@@ -3,8 +3,6 @@ from ..logs import log_action
 from ..db.database import get_db_connection
 from pydantic import BaseModel
 
-DB_PATH = 'database.db' 
-
 #TODO: make the logs show the current user id for logs
 
 #----------------

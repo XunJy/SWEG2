@@ -2,12 +2,10 @@ import uuid
 from app.db.database import get_db_connection
 from app.models.user import is_admin
 from app.logs import log_action
-    
+
 #-------------------------
 # ROOM CRUD OPERATIONS
 #-------------------------
-
-DB_PATH = 'database.db' 
 
 #CREATE
 def create_room(user_id, number, building, capacity):

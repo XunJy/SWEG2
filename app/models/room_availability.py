@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
-from room import Room
-from database import get_db_connection
-
-DB_PATH = 'database.db' 
+from app.models.room import Room
+from app.db.database import get_db_connection
 
 #-------------------------
 # ROOM AVAILABILITY
