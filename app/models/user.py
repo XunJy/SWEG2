@@ -1,7 +1,6 @@
-import bcrypt
-    #this is a hashsing package to store the passwords better
 import uuid
 import sqlite3
+import bcrypt
 from ..db.database import *
 from pydantic import BaseModel
 from secrets import token_urlsafe
