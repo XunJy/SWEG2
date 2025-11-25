@@ -42,6 +42,9 @@ def view_event_details(app, id, caller, booking_id=None):
 
         room_number = booking.get("room_number") or booking.get("room_id")
         room_building = booking.get("room_building")
+        capacity = booking.get("room_capacity")
+        attendee_count = booking.get("attendee_count") or 0
+        remaining = capacity - attendee_count if capacity is not None else None
         room_display = f"Room {room_number}" if room_number else "Room"
         if room_building:
             room_display = f"{room_display} - {room_building}"
@@ -49,6 +52,11 @@ def view_event_details(app, id, caller, booking_id=None):
         ctk.CTkLabel(app, text=f"Room: {room_display}").pack(pady=(0, 5))
         ctk.CTkLabel(app, text=f"Start Time: {booking.get('start_time')}").pack(pady=(0, 5))
         ctk.CTkLabel(app, text=f"End Time: {booking.get('end_time')}").pack(pady=(0, 10))
+        if remaining is not None:
+            ctk.CTkLabel(
+                app,
+                text=f"Capacity remaining: {remaining} of {capacity}",
+            ).pack(pady=(0, 10))
 
         if caller == "invites":
             ctk.CTkButton(
@@ -91,6 +99,8 @@ def fetch_booking(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    if booking.get("attendee_count") is None:
+        booking["attendee_count"] = 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -98,6 +108,7 @@ def fetch_booking(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+            booking.setdefault("room_capacity", room.get("capacity"))
 
     return booking
 

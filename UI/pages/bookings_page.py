@@ -7,78 +7,106 @@ from UI.pages.event_details_page import view_event_details, cancel_booking
 
 @clear_contents
 def show_my_bookings(app):
+    if hasattr(app, "bookings_refresh_job"):
+        try:
+            app.after_cancel(app.bookings_refresh_job)
+        except Exception:
+            pass
+
     events_frame = ctk.CTkScrollableFrame(app, width=450, height=400)
     events_frame.place(relx=0.5, rely=0.5, anchor="center")
     ctk.CTkLabel(app, text="My Bookings", font=("Arial", 18, "bold")).pack(pady=20)
 
-    if not getattr(app, "user_id", None):
-        ctk.CTkLabel(events_frame, text="Please log in to view your bookings.").pack(pady=20)
-        return
+    def refresh_bookings():
+        if not events_frame.winfo_exists():
+            return
 
-    bookings_response = requests.get(f"http://127.0.0.1:8000/bookings/user/{app.user_id}")
-    if bookings_response.status_code != 200:
-        ctk.CTkLabel(events_frame, text="Unable to load bookings from the server.").pack(pady=20)
-        return
+        for widget in events_frame.winfo_children():
+            widget.destroy()
 
-    bookings = bookings_response.json()
-    if not bookings:
-        ctk.CTkLabel(events_frame, text="You have no bookings yet.").pack(pady=20)
-        return
+        if not getattr(app, "user_id", None):
+            ctk.CTkLabel(events_frame, text="Please log in to view your bookings.").pack(pady=20)
+            return
 
-    for booking in bookings:
-        booking_id = booking.get("booking_id")
-        details = fetch_booking_details(booking_id)
+        bookings_response = requests.get(f"http://127.0.0.1:8000/users/{app.user_id}/bookings")
+        if bookings_response.status_code != 200:
+            ctk.CTkLabel(events_frame, text="Unable to load bookings from the server.").pack(pady=20)
+            return
 
-        name = details.get("name")
-        description = details.get("description") or ""
-        start_time = details.get("start_time")
-        end_time = details.get("end_time")
-        room_number = details.get("room_number") or details.get("room_id")
-        room_building = details.get("room_building")
-        room_display = f"Room {room_number}" if room_number else "Room"
-        if room_building:
-            room_display = f"{room_display} - {room_building}"
+        organiser_links = [
+            booking for booking in bookings_response.json() if booking.get("organiser")
+        ]
+        if not organiser_links:
+            ctk.CTkLabel(events_frame, text="You have no bookings yet.").pack(pady=20)
+        else:
+            for booking in organiser_links:
+                booking_id = booking.get("booking_id")
+                details = fetch_booking_details(booking_id)
 
-        frame = ctk.CTkFrame(events_frame)
-        frame.pack(fill="x", padx=10, pady=10)
+                name = details.get("name")
+                description = details.get("description") or ""
+                start_time = details.get("start_time")
+                end_time = details.get("end_time")
+                room_number = details.get("room_number") or details.get("room_id")
+                room_building = details.get("room_building")
+                capacity = details.get("room_capacity")
+                attendee_count = details.get("attendee_count") or 0
+                remaining = capacity - attendee_count if capacity is not None else None
+                room_display = f"Room {room_number}" if room_number else "Room"
+                if room_building:
+                    room_display = f"{room_display} - {room_building}"
 
-        ctk.CTkLabel(frame, text=name, anchor="w", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
-        ctk.CTkLabel(frame, text=description, wraplength=450, justify="left", anchor="w").pack(anchor="w", padx=10)
+                frame = ctk.CTkFrame(events_frame)
+                frame.pack(fill="x", padx=10, pady=10)
 
-        info_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
-        info_row.pack(fill="x", padx=10, pady=(5, 5))
-        ctk.CTkLabel(info_row, text=f"Room: {room_display}", anchor="w").pack(anchor="w")
-        ctk.CTkLabel(info_row, text=f"Time: {start_time} - {end_time}", anchor="w").pack(anchor="w")
+                ctk.CTkLabel(frame, text=name, anchor="w", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+                ctk.CTkLabel(frame, text=description, wraplength=450, justify="left", anchor="w").pack(anchor="w", padx=10)
 
-        button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
-        button_row.pack(fill="x", padx=10, pady=(0, 10))
-        ctk.CTkButton(
-            button_row,
-            text="View More",
-            width=100,
-            height=28,
-            fg_color="#0078D7",
-            hover_color="#005A9E",
-            command=lambda id=booking_id: view_event_details(app, id, caller="bookings"),
-        ).pack(side="right", padx=5)
-        ctk.CTkButton(
-            button_row,
-            text="Cancel Booking",
-            width=120,
-            height=28,
-            fg_color="#cc3333",
-            hover_color="#990000",
-            command=lambda id=booking_id: cancel_booking(app, id),
-        ).pack(side="right", padx=5)
-        ctk.CTkButton(
-            button_row,
-            text="Invite Users",
-            width=120,
-            height=28,
-            fg_color="#6b6b6b",
-            hover_color="#4a4a4a",
-            command=lambda id=booking_id: invite_users(app, id),
-        ).pack(side="right", padx=5)
+                info_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+                info_row.pack(fill="x", padx=10, pady=(5, 5))
+                ctk.CTkLabel(info_row, text=f"Room: {room_display}", anchor="w").pack(anchor="w")
+                ctk.CTkLabel(info_row, text=f"Time: {start_time} - {end_time}", anchor="w").pack(anchor="w")
+                if remaining is not None:
+                    ctk.CTkLabel(
+                        info_row,
+                        text=f"Capacity remaining: {remaining} of {capacity}",
+                        anchor="w",
+                    ).pack(anchor="w")
+
+                button_row = ctk.CTkFrame(frame, fg_color=frame.cget("fg_color"))
+                button_row.pack(fill="x", padx=10, pady=(0, 10))
+                ctk.CTkButton(
+                    button_row,
+                    text="View More",
+                    width=100,
+                    height=28,
+                    fg_color="#0078D7",
+                    hover_color="#005A9E",
+                    command=lambda id=booking_id: view_event_details(app, id, caller="bookings"),
+                ).pack(side="right", padx=5)
+                ctk.CTkButton(
+                    button_row,
+                    text="Cancel Booking",
+                    width=120,
+                    height=28,
+                    fg_color="#cc3333",
+                    hover_color="#990000",
+                    command=lambda id=booking_id: cancel_booking(app, id),
+                ).pack(side="right", padx=5)
+                ctk.CTkButton(
+                    button_row,
+                    text="Invite Users",
+                    width=120,
+                    height=28,
+                    fg_color="#6b6b6b",
+                    hover_color="#4a4a4a",
+                    command=lambda id=booking_id: invite_users(app, id),
+                    state=("disabled" if remaining is not None and remaining <= 0 else "normal"),
+                ).pack(side="right", padx=5)
+
+        app.bookings_refresh_job = app.after(3000, refresh_bookings)
+
+    refresh_bookings()
 
 
 def fetch_booking_details(booking_id):
@@ -88,6 +116,8 @@ def fetch_booking_details(booking_id):
 
     booking = response.json()
     room_id = booking.get("room_id")
+    if booking.get("attendee_count") is None:
+        booking["attendee_count"] = 0
 
     if room_id:
         room_response = requests.get(f"http://127.0.0.1:8000/rooms/{room_id}")
@@ -95,6 +125,7 @@ def fetch_booking_details(booking_id):
             room = room_response.json()
             booking["room_number"] = room.get("number")
             booking["room_building"] = room.get("building")
+            booking.setdefault("room_capacity", room.get("capacity"))
 
     return booking
 
