@@ -191,7 +191,7 @@ def read_bookings_by_user(user_id):
             SELECT booking_id, room_id, start_time, end_time, name, description, public
             FROM booking
             JOIN user_booking USING (booking_id)
-            WHERE user_id = ?
+            WHERE user_id = ? AND organiser = 1
         """, (user_id,))
         rows = cursor.fetchall()
 
