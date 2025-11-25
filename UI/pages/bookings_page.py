@@ -28,16 +28,18 @@ def show_my_bookings(app):
             ctk.CTkLabel(events_frame, text="Please log in to view your bookings.").pack(pady=20)
             return
 
-        bookings_response = requests.get(f"http://127.0.0.1:8000/bookings/user/{app.user_id}")
+        bookings_response = requests.get(f"http://127.0.0.1:8000/users/{app.user_id}/bookings")
         if bookings_response.status_code != 200:
             ctk.CTkLabel(events_frame, text="Unable to load bookings from the server.").pack(pady=20)
             return
 
-        bookings = bookings_response.json()
-        if not bookings:
+        organiser_links = [
+            booking for booking in bookings_response.json() if booking.get("organiser")
+        ]
+        if not organiser_links:
             ctk.CTkLabel(events_frame, text="You have no bookings yet.").pack(pady=20)
         else:
-            for booking in bookings:
+            for booking in organiser_links:
                 booking_id = booking.get("booking_id")
                 details = fetch_booking_details(booking_id)
 
